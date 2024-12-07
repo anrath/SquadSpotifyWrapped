@@ -4,14 +4,16 @@ interface FileDropzoneProps {
   children: React.ReactNode;
   acceptedFileTypes: string[];
   dropText: string;
-  setCurrentFile: (file: File) => void;
+  setCurrentFiles: (files: File[]) => void;
+  maxFiles?: number;
 }
 
 export function FileDropzone({
   children,
   acceptedFileTypes,
   dropText,
-  setCurrentFile,
+  setCurrentFiles,
+  maxFiles = 10,
 }: FileDropzoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   const dragCounter = useRef(0);
@@ -48,30 +50,25 @@ export function FileDropzone({
       setIsDragging(false);
       dragCounter.current = 0;
 
-      const files = e.dataTransfer?.files;
-      if (files && files.length > 0) {
-        const droppedFile = files[0];
+      const droppedFiles = Array.from(e.dataTransfer?.files || []);
+      if (droppedFiles.length > 0) {
+        const validFiles = droppedFiles.filter(
+          (file) =>
+            acceptedFileTypes.includes(file.type) ||
+            acceptedFileTypes.some((type) =>
+              file.name.toLowerCase().endsWith(type.replace("*", "")),
+            )
+        );
 
-        if (!droppedFile) {
-          alert("How did you do a drop with no files???");
-          throw new Error("No files dropped");
+        if (validFiles.length === 0) {
+          alert("Invalid file type. Please upload supported file types.");
+          return;
         }
 
-        if (
-          !acceptedFileTypes.includes(droppedFile.type) &&
-          !acceptedFileTypes.some((type) =>
-            droppedFile.name.toLowerCase().endsWith(type.replace("*", "")),
-          )
-        ) {
-          alert("Invalid file type. Please upload a supported file type.");
-          throw new Error("Invalid file");
-        }
-
-        // Happy path
-        setCurrentFile(droppedFile);
+        setCurrentFiles(validFiles.slice(0, maxFiles));
       }
     },
-    [acceptedFileTypes, setCurrentFile],
+    [acceptedFileTypes, setCurrentFiles, maxFiles],
   );
 
   return (

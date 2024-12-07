@@ -46,81 +46,82 @@ const parseImageFile = (
   });
 };
 
-export type FileUploaderResult = {
-  /** The processed image content as a data URL (for regular images) or object URL (for SVGs) */
+export type FileUploadItem = {
   imageContent: string;
-  /** The raw file content as a string */
   rawContent: string;
-  /** Metadata about the uploaded image including dimensions and filename */
   imageMetadata: {
     width: number;
     height: number;
     name: string;
-  } | null;
-  /** Handler for file input change events */
-  handleFileUpload: (file: File) => void;
+  };
+};
+
+export type FileUploaderResult = {
+  files: FileUploadItem[];
+  handleFileUpload: (files: File[]) => void;
   handleFileUploadEvent: (event: ChangeEvent<HTMLInputElement>) => void;
-  /** Resets the upload state */
   cancel: () => void;
+  removeFile: (index: number) => void;
 };
 
 /**
  * A hook for handling file uploads, particularly images and SVGs
  * @returns {FileUploaderResult} An object containing:
- * - imageContent: Use this as the src for an img tag
- * - rawContent: The raw file content as a string (useful for SVG tags)
- * - imageMetadata: Width, height, and name of the image
+ * - files: Array of processed image content as data URLs (for regular images) or object URLs (for SVGs)
  * - handleFileUpload: Function to handle file input change events
  * - cancel: Function to reset the upload state
+ * - removeFile: Function to remove a file from the upload list
  */
 export const useFileUploader = (): FileUploaderResult => {
-  const [imageContent, setImageContent] = useState<string>("");
-  const [rawContent, setRawContent] = useState<string>("");
-  const [imageMetadata, setImageMetadata] = useState<{
-    width: number;
-    height: number;
-    name: string;
-  } | null>(null);
+  const [files, setFiles] = useState<FileUploadItem[]>([]);
 
-  const processFile = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const content = e.target?.result as string;
-      setRawContent(content);
+  const processFile = async (file: File): Promise<FileUploadItem> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const content = e.target?.result as string;
+
+        if (file.type === "image/svg+xml") {
+          const { content: svgContent, metadata } = parseSvgFile(content, file.name);
+          resolve({
+            imageContent: svgContent,
+            rawContent: content,
+            imageMetadata: metadata,
+          });
+        } else {
+          const { content: imgContent, metadata } = await parseImageFile(content, file.name);
+          resolve({
+            imageContent: imgContent,
+            rawContent: content,
+            imageMetadata: metadata,
+          });
+        }
+      };
 
       if (file.type === "image/svg+xml") {
-        const { content: svgContent, metadata } = parseSvgFile(
-          content,
-          file.name,
-        );
-        setImageContent(svgContent);
-        setImageMetadata(metadata);
+        reader.readAsText(file);
       } else {
-        const { content: imgContent, metadata } = await parseImageFile(
-          content,
-          file.name,
-        );
-        setImageContent(imgContent);
-        setImageMetadata(metadata);
+        reader.readAsDataURL(file);
       }
-    };
+    });
+  };
 
-    if (file.type === "image/svg+xml") {
-      reader.readAsText(file);
-    } else {
-      reader.readAsDataURL(file);
-    }
+  const handleFileUpload = async (newFiles: File[]) => {
+    const processedFiles = await Promise.all(
+      newFiles.slice(0, 10 - files.length).map(processFile)
+    );
+    setFiles((current) => [...current, ...processedFiles].slice(0, 10));
   };
 
   const handleFileUploadEvent = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      processFile(file);
+    const fileList = Array.from(event.target.files || []);
+    if (fileList.length > 0) {
+      void handleFileUpload(fileList);
     }
   };
 
   const handleFilePaste = useCallback((file: File) => {
-    processFile(file);
+    void handleFileUpload([file]);
   }, []);
 
   useClipboardPaste({
@@ -129,16 +130,18 @@ export const useFileUploader = (): FileUploaderResult => {
   });
 
   const cancel = () => {
-    setImageContent("");
-    setImageMetadata(null);
+    setFiles([]);
+  };
+
+  const removeFile = (index: number) => {
+    setFiles((current) => current.filter((_, i) => i !== index));
   };
 
   return {
-    imageContent,
-    rawContent,
-    imageMetadata,
-    handleFileUpload: processFile,
+    files,
+    handleFileUpload,
     handleFileUploadEvent,
     cancel,
+    removeFile,
   };
 };

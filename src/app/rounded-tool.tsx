@@ -152,8 +152,7 @@ function SaveAsPngButton({
 }
 
 function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
-  const { imageContent, imageMetadata, handleFileUploadEvent, cancel } =
-    props.fileUploaderProps;
+  const { files, removeFile, handleFileUploadEvent, cancel } = props.fileUploaderProps;
   const [radius, setRadius] = useLocalStorage<Radius>("roundedTool_radius", 2);
   const [isCustomRadius, setIsCustomRadius] = useState(false);
   const [background, setBackground] = useLocalStorage<BackgroundOption>(
@@ -170,13 +169,14 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
     }
   };
 
-  if (!imageMetadata) {
+  if (files.length === 0) {
     return (
       <UploadBox
         title="Add rounded borders to your images. Quick and easy."
-        subtitle="Allows pasting images from clipboard"
-        description="Upload Image"
+        subtitle="Upload up to 10 images at once. Allows pasting images from clipboard"
+        description="Upload Images"
         accept="image/*"
+        multiple
         onChange={handleFileUploadEvent}
       />
     );
@@ -184,21 +184,33 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col items-center justify-center gap-6 p-6">
-      <div className="flex w-full flex-col items-center gap-4 rounded-xl p-6">
-        <ImageRenderer
-          imageContent={imageContent}
-          radius={radius}
-          background={background}
-        />
-        <p className="text-lg font-medium text-white/80">
-          {imageMetadata.name}
-        </p>
-      </div>
+      {files.map((file, index) => (
+        <div key={file.imageMetadata.name + index} className="relative w-full">
+          <div className="flex w-full flex-col items-center gap-4 rounded-xl p-6">
+            <ImageRenderer
+              imageContent={file.imageContent}
+              radius={radius}
+              background={background}
+            />
+            <div className="flex items-center gap-2">
+              <p className="text-lg font-medium text-white/80">
+                {file.imageMetadata.name}
+              </p>
+              <button
+                onClick={() => removeFile(index)}
+                className="rounded-full bg-red-700 p-1 text-white/90 hover:bg-red-800"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
 
       <div className="flex flex-col items-center rounded-lg bg-white/5 p-3">
         <span className="text-sm text-white/60">Original Size</span>
         <span className="font-medium text-white">
-          {imageMetadata.width} × {imageMetadata.height}
+          {files[0].imageMetadata.width} × {files[0].imageMetadata.height}
         </span>
       </div>
 
@@ -228,12 +240,15 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
         >
           Cancel
         </button>
-        <SaveAsPngButton
-          imageContent={imageContent}
-          radius={radius}
-          background={background}
-          imageMetadata={imageMetadata}
-        />
+        {files.map((file, index) => (
+          <SaveAsPngButton
+            key={file.imageMetadata.name + index}
+            imageContent={file.imageContent}
+            radius={radius}
+            background={background}
+            imageMetadata={file.imageMetadata}
+          />
+        ))}
       </div>
     </div>
   );
@@ -244,9 +259,10 @@ export function RoundedTool() {
 
   return (
     <FileDropzone
-      setCurrentFile={fileUploaderProps.handleFileUpload}
+      setCurrentFiles={fileUploaderProps.handleFileUpload}
       acceptedFileTypes={["image/*", ".jpg", ".jpeg", ".png", ".webp", ".svg"]}
-      dropText="Drop image file"
+      dropText="Drop image files"
+      maxFiles={10}
     >
       <RoundedToolCore fileUploaderProps={fileUploaderProps} />
     </FileDropzone>
