@@ -21,6 +21,73 @@ type FileWithOCR = FileUploaderResult['files'][0] & {
   isProcessingOCR?: boolean;
 };
 
+type SpotifyData = {
+  "Top Artists": string[];
+  "Top Songs": string[];
+} | null;
+
+type TesseractResult = {
+  data: {
+    text: string;
+  };
+};
+
+function parseSpotifyText(text: string): SpotifyData | string {
+  const cleanText = text.replace(/\s+/g, ' ').trim();
+
+  if (!cleanText.includes('Top Artists Top Songs')) {
+    return cleanText;
+  }
+
+  try {
+    // Add newlines at key positions to normalize the text structure
+    const normalizedText = cleanText
+      .replace(/(\s*Top Artists Top Songs)/, '\n$1\n')
+      .replace(/(\s*Minutes Listened)/, '\n$1')
+      .replace(/(\s*1\s+[^\d]+\s+1\s+)/, '\n$1')
+      .replace(/(\s*2\s+[^\d]+\s+2\s+)/, '\n$1')
+      .replace(/(\s*3\s+[^\d]+\s+3\s+)/, '\n$1')
+      .replace(/(\s*4\s+[^\d]+\s+4\s+)/, '\n$1')
+      .replace(/(\s*5\s+[^\d]+\s+5\s+)/, '\n$1');
+
+    const lines = normalizedText.split('\n').map(line => line.trim()).filter(Boolean);
+    const artists: string[] = [];
+    const songs: string[] = [];
+
+    const startIndex = lines.findIndex(line => line.includes('Top Artists Top Songs'));
+    if (startIndex === -1) return cleanText;
+
+    for (let i = 1; i <= 5; i++) {
+      const line = lines[startIndex + i];
+      if (!line) continue;
+
+      const parts = line.split(new RegExp(`${i}\\s+`)).filter(Boolean);
+      if (parts?.[0] && parts?.[1]) {
+        const artist = parts[0].replace(/^\d+\s*/, '').trim();
+        const song = parts[1]
+          .replace(/^\d+\s*/, '')
+          .replace(/\.\.\.$/, '')
+          .trim();
+
+        artists.push(artist);
+        songs.push(song);
+      }
+    }
+
+    if (artists.length === 5 && songs.length === 5) {
+      return {
+        "Top Artists": artists,
+        "Top Songs": songs
+      } as SpotifyData;
+    }
+
+    return cleanText;
+  } catch (error) {
+    console.error('Error parsing Spotify text:', error);
+    return text;
+  }
+}
+
 function useImageConverter(props: {
   canvas: HTMLCanvasElement | null;
   imageContent: string;
@@ -85,7 +152,7 @@ interface ImageRendererProps {
   imageContent: string;
   radius: Radius;
   background: BackgroundOption;
-  extractedText?: string;
+  extractedText?: string | SpotifyData;
   isProcessingOCR?: boolean;
 }
 
@@ -106,6 +173,37 @@ const ImageRenderer = ({
       }
     }
   }, [imageContent, radius]);
+
+  const renderExtractedText = () => {
+    if (!extractedText) return null;
+
+    if (typeof extractedText === 'string') {
+      return (
+        <p className="text-white/70 text-sm whitespace-pre-wrap">{extractedText}</p>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        <div>
+          <h4 className="text-white/90 font-medium mb-2">Top Artists</h4>
+          <ol className="list-decimal list-inside text-white/70">
+            {extractedText["Top Artists"].map((artist, i) => (
+              <li key={i}>{artist}</li>
+            ))}
+          </ol>
+        </div>
+        <div>
+          <h4 className="text-white/90 font-medium mb-2">Top Songs</h4>
+          <ol className="list-decimal list-inside text-white/70">
+            {extractedText["Top Songs"].map((song, i) => (
+              <li key={i}>{song}</li>
+            ))}
+          </ol>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div ref={containerRef} className="flex flex-col gap-4 w-[500px]">
@@ -129,7 +227,7 @@ const ImageRenderer = ({
       {extractedText && (
         <div className="bg-white/10 rounded-lg p-4">
           <h3 className="text-white/80 text-sm font-medium mb-2">Extracted Text:</h3>
-          <p className="text-white/70 text-sm whitespace-pre-wrap">{extractedText}</p>
+          {renderExtractedText()}
         </div>
       )}
     </div>
@@ -199,20 +297,21 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
       try {
         const result = await Tesseract.recognize(
           file.imageContent,
-          'eng',
-          {
-            logger: m => console.log(m),
-          }
-        ) as Tesseract.RecognizeResult;
+          'eng'
+        ) as TesseractResult;
 
-        setFiles(prev => prev.map((f, i) => 
-          i === index ? { ...f, extractedText: result.data.text, isProcessingOCR: false } : f
-        ));
+        if (result?.data?.text) {
+          const parsedText = parseSpotifyText(result.data.text);
+          
+          setFiles(prev => prev.map((f, i) => 
+            i === index ? { ...f, extractedText: parsedText, isProcessingOCR: false } : f
+          ) as FileWithOCR[]);
+        }
       } catch (error) {
         console.error('OCR failed:', error);
         setFiles(prev => prev.map((f, i) => 
           i === index ? { ...f, isProcessingOCR: false } : f
-        ));
+        ) as FileWithOCR[]);
       }
     };
 
