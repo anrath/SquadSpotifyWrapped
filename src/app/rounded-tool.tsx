@@ -10,10 +10,16 @@ import {
   type FileUploaderResult,
 } from "@/hooks/use-file-uploader";
 import { FileDropzone } from "@/components/shared/file-dropzone";
+import Tesseract from 'tesseract.js';
 
 type Radius = number;
 
 type BackgroundOption = "white" | "black" | "transparent";
+
+type FileWithOCR = FileUploaderResult['files'][0] & {
+  extractedText?: string;
+  isProcessingOCR?: boolean;
+};
 
 function useImageConverter(props: {
   canvas: HTMLCanvasElement | null;
@@ -79,12 +85,16 @@ interface ImageRendererProps {
   imageContent: string;
   radius: Radius;
   background: BackgroundOption;
+  extractedText?: string;
+  isProcessingOCR?: boolean;
 }
 
 const ImageRenderer = ({
   imageContent,
   radius,
   background,
+  extractedText,
+  isProcessingOCR,
 }: ImageRendererProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -98,17 +108,30 @@ const ImageRenderer = ({
   }, [imageContent, radius]);
 
   return (
-    <div ref={containerRef} className="relative w-[500px]">
-      <div
-        className="absolute inset-0"
-        style={{ backgroundColor: background, borderRadius: 0 }}
-      />
-      <img
-        src={imageContent}
-        alt="Preview"
-        className="relative rounded-lg"
-        style={{ width: "100%", height: "auto", objectFit: "contain" }}
-      />
+    <div ref={containerRef} className="flex flex-col gap-4 w-[500px]">
+      <div className="relative">
+        <div
+          className="absolute inset-0"
+          style={{ backgroundColor: background, borderRadius: 0 }}
+        />
+        <img
+          src={imageContent}
+          alt="Preview"
+          className="relative rounded-lg"
+          style={{ width: "100%", height: "auto", objectFit: "contain" }}
+        />
+      </div>
+      
+      {isProcessingOCR && (
+        <div className="text-white/70 text-sm">Extracting text...</div>
+      )}
+      
+      {extractedText && (
+        <div className="bg-white/10 rounded-lg p-4">
+          <h3 className="text-white/80 text-sm font-medium mb-2">Extracted Text:</h3>
+          <p className="text-white/70 text-sm whitespace-pre-wrap">{extractedText}</p>
+        </div>
+      )}
     </div>
   );
 };
@@ -152,13 +175,51 @@ function SaveAsPngButton({
 }
 
 function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
-  const { files, removeFile, handleFileUploadEvent, cancel } = props.fileUploaderProps;
+  const { files: originalFiles, removeFile, handleFileUploadEvent, cancel } = props.fileUploaderProps;
+  const [files, setFiles] = useState<FileWithOCR[]>([]);
   const [radius, setRadius] = useLocalStorage<Radius>("roundedTool_radius", 2);
   const [isCustomRadius, setIsCustomRadius] = useState(false);
   const [background, setBackground] = useLocalStorage<BackgroundOption>(
     "roundedTool_background",
     "transparent",
   );
+
+  useEffect(() => {
+    setFiles(originalFiles.map(file => ({ ...file, extractedText: undefined, isProcessingOCR: false })));
+  }, [originalFiles]);
+
+  useEffect(() => {
+    const processOCR = async (file: FileWithOCR, index: number) => {
+      if (file.extractedText || file.isProcessingOCR) return;
+
+      setFiles(prev => prev.map((f, i) => 
+        i === index ? { ...f, isProcessingOCR: true } : f
+      ));
+
+      try {
+        const result = await Tesseract.recognize(
+          file.imageContent,
+          'eng',
+          {
+            logger: m => console.log(m),
+          }
+        ) as Tesseract.RecognizeResult;
+
+        setFiles(prev => prev.map((f, i) => 
+          i === index ? { ...f, extractedText: result.data.text, isProcessingOCR: false } : f
+        ));
+      } catch (error) {
+        console.error('OCR failed:', error);
+        setFiles(prev => prev.map((f, i) => 
+          i === index ? { ...f, isProcessingOCR: false } : f
+        ));
+      }
+    };
+
+    files.forEach((file, index) => {
+      void processOCR(file, index);
+    });
+  }, [files.length]);
 
   const handleRadiusChange = (value: number | "custom") => {
     if (value === "custom") {
@@ -191,6 +252,8 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
               imageContent={file.imageContent}
               radius={radius}
               background={background}
+              extractedText={file.extractedText}
+              isProcessingOCR={file.isProcessingOCR}
             />
             <div className="flex items-center gap-2">
               <p className="text-lg font-medium text-white/80">
