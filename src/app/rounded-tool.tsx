@@ -206,7 +206,7 @@ const ImageRenderer = ({
   };
 
   return (
-    <div ref={containerRef} className="flex flex-col gap-4 w-[500px]">
+    <div ref={containerRef} className="flex flex-col gap-4 w-[500px] max-w-[95vw]">
       <div className="relative">
         <div
           className="absolute inset-0"
@@ -343,7 +343,7 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
   }
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col items-center justify-center gap-6 p-6">
+    <div className="mx-auto flex max-w-[min(100vw,42rem)] flex-col items-center justify-center gap-6 p-6">
       {files.map((file, index) => (
         <div key={file.imageMetadata.name + index} className="relative w-full">
           <div className="flex w-full flex-col items-center gap-4 rounded-xl p-6">
