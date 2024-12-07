@@ -11,12 +11,9 @@ export async function GenerateImage(params: {
   title: string;
   description?: string;
 }) {
-  // Fonts
+  // Font
   const interSemiBold = fetch(
     new URL("../fonts/Inter-SemiBold.ttf", import.meta.url),
-  ).then((res) => res.arrayBuffer());
-  const interLight = fetch(
-    new URL("../fonts/Inter-Light.ttf", import.meta.url),
   ).then((res) => res.arrayBuffer());
 
   return new ImageResponse(
@@ -46,16 +43,16 @@ export async function GenerateImage(params: {
           }}
         >
           <span style={{ fontWeight: 600 }}>{params.title}</span>
-          <span style={{ fontSize: 36, fontWeight: 300 }}>
-            {params.description}
-          </span>
+          {params.description && (
+            <span style={{ fontSize: 36, fontWeight: 600 }}>
+              {params.description}
+            </span>
+          )}
         </div>
       </div>
     ),
     // ImageResponse options
     {
-      // For convenience, we can re-use the exported opengraph-image
-      // size config to also set the ImageResponse's width and height.
       ...size,
       fonts: [
         {
@@ -63,13 +60,7 @@ export async function GenerateImage(params: {
           data: await interSemiBold,
           style: "normal",
           weight: 600,
-        },
-        {
-          name: "Inter",
-          data: await interLight,
-          style: "normal",
-          weight: 300,
-        },
+        }
       ],
     },
   );
