@@ -24,7 +24,7 @@ export async function GenerateImage(params: {
       // ImageResponse JSX element
       <div
         style={{
-          fontSize: 160,
+          fontSize: 128,
           background: "black",
           width: "100%",
           height: "100%",
@@ -33,21 +33,20 @@ export async function GenerateImage(params: {
           alignItems: "center",
           justifyContent: "center",
           color: "white",
-          fontFamily: "Inter, sans-serif",
+          fontFamily: "Inter",
         }}
       >
         <div
           style={{
             display: "flex",
             flexDirection: "column",
-            textAlign: "center",
             alignItems: "center",
             justifyContent: "center",
             gap: 4,
           }}
         >
           <span style={{ fontWeight: 600 }}>{params.title}</span>
-          <span style={{ fontSize: 40, fontWeight: 300 }}>
+          <span style={{ fontSize: 36, fontWeight: 300 }}>
             {params.description}
           </span>
         </div>

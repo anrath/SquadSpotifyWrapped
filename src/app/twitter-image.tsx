@@ -1,6 +1,6 @@
 import { GenerateImage } from "@/app/utils/og-generator";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 
 export const alt = "Corner Rounder - SquadSpotifyWrapped";
 export const contentType = "image/png";
