@@ -106,36 +106,36 @@ export const useFileUploader = (): FileUploaderResult => {
     });
   };
 
-  const handleFileUpload = async (newFiles: File[]) => {
+  const handleFileUpload = useCallback(async (newFiles: File[]) => {
     const processedFiles = await Promise.all(
       newFiles.slice(0, 10 - files.length).map(processFile)
     );
     setFiles((current) => [...current, ...processedFiles].slice(0, 10));
-  };
+  }, [files.length]);
 
-  const handleFileUploadEvent = (event: ChangeEvent<HTMLInputElement>) => {
-    const fileList = Array.from(event.target.files || []);
+  const handleFileUploadEvent = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    const fileList = Array.from(event.target.files ?? []);
     if (fileList.length > 0) {
       void handleFileUpload(fileList);
     }
-  };
+  }, [handleFileUpload]);
 
-  const handleFilePaste = useCallback((file: File) => {
-    void handleFileUpload([file]);
-  }, []);
+  const handleFilePaste = useCallback((files: File[]) => {
+    void handleFileUpload(files);
+  }, [handleFileUpload]);
 
   useClipboardPaste({
     onPaste: handleFilePaste,
     acceptedFileTypes: ["image/*", ".jpg", ".jpeg", ".png", ".webp", ".svg"],
   });
 
-  const cancel = () => {
+  const cancel = useCallback(() => {
     setFiles([]);
-  };
+  }, []);
 
-  const removeFile = (index: number) => {
+  const removeFile = useCallback((index: number) => {
     setFiles((current) => current.filter((_, i) => i !== index));
-  };
+  }, []);
 
   return {
     files,

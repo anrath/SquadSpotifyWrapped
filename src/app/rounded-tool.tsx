@@ -198,7 +198,7 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
               </p>
               <button
                 onClick={() => removeFile(index)}
-                className="rounded-full bg-red-700 p-1 text-white/90 hover:bg-red-800"
+                className="rounded-full bg-red-700 w-6 h-6 flex items-center justify-center text-white/90 hover:bg-red-800"
               >
                 ✕
               </button>
@@ -210,7 +210,7 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
       <div className="flex flex-col items-center rounded-lg bg-white/5 p-3">
         <span className="text-sm text-white/60">Original Size</span>
         <span className="font-medium text-white">
-          {files[0].imageMetadata.width} × {files[0].imageMetadata.height}
+          {files[0]?.imageMetadata.width} × {files[0]?.imageMetadata.height}
         </span>
       </div>
 
