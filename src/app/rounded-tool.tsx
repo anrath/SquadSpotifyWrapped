@@ -11,6 +11,9 @@ import {
 } from "@/hooks/use-file-uploader";
 import { FileDropzone } from "@/components/shared/file-dropzone";
 import Tesseract from 'tesseract.js';
+import { SpotifyApiService } from '@/services/spotifyApi';
+import { PlaylistGenerator } from '@/utils/playlistGenerator';
+import { config } from '@/config/env';
 
 type Radius = number;
 
@@ -19,6 +22,7 @@ type BackgroundOption = "white" | "black" | "transparent";
 type FileWithOCR = FileUploaderResult['files'][0] & {
   extractedText?: string;
   isProcessingOCR?: boolean;
+  playlist?: SpotifyPlaylist;
 };
 
 type SpotifyData = {
@@ -31,6 +35,11 @@ type TesseractResult = {
     text: string;
   };
 };
+
+interface SpotifyPlaylist {
+  id: string;
+  url: string;
+}
 
 function parseSpotifyText(text: string): SpotifyData | string {
   const cleanText = text.replace(/\s+/g, ' ').trim();
@@ -154,7 +163,34 @@ interface ImageRendererProps {
   background: BackgroundOption;
   extractedText?: string | SpotifyData;
   isProcessingOCR?: boolean;
+  playlist?: SpotifyPlaylist;
 }
+
+const createSpotifyPlaylist = async (data: SpotifyData): Promise<SpotifyPlaylist | null> => {
+  try {
+    const spotifyApi = new SpotifyApiService({
+      clientId: config.spotify.clientId,
+      clientSecret: config.spotify.clientSecret
+    });
+
+    const playlistGenerator = new PlaylistGenerator(spotifyApi);
+    
+    const playlistId = await playlistGenerator.generatePlaylist({
+      songs: data?.["Top Songs"] ?? [],
+      artists: data?.["Top Artists"] ?? []
+    });
+
+    if (!playlistId) return null;
+
+    return {
+      id: playlistId,
+      url: `https://open.spotify.com/playlist/${playlistId}`
+    };
+  } catch (error) {
+    console.error('Error creating playlist:', error);
+    return null;
+  }
+};
 
 const ImageRenderer = ({
   imageContent,
@@ -162,6 +198,7 @@ const ImageRenderer = ({
   background,
   extractedText,
   isProcessingOCR,
+  playlist,
 }: ImageRendererProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -201,6 +238,19 @@ const ImageRenderer = ({
             ))}
           </ol>
         </div>
+        {playlist && (
+          <div className="mt-4">
+            <h4 className="text-white/90 font-medium mb-2">Generated Playlist</h4>
+            <a
+              href={playlist.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-green-400 hover:text-green-300 underline"
+            >
+              Open in Spotify
+            </a>
+          </div>
+        )}
       </div>
     );
   };
@@ -303,15 +353,25 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
         if (result?.data?.text) {
           const parsedText = parseSpotifyText(result.data.text);
           
+          let playlist: SpotifyPlaylist | null = null;
+          if (typeof parsedText !== 'string') {
+            playlist = await createSpotifyPlaylist(parsedText);
+          }
+
           setFiles(prev => prev.map((f, i) => 
-            i === index ? { ...f, extractedText: parsedText, isProcessingOCR: false } : f
-          ) as FileWithOCR[]);
+            i === index ? { 
+              ...f, 
+              extractedText: parsedText, 
+              isProcessingOCR: false,
+              playlist: playlist ?? undefined
+            } : f
+          ));
         }
       } catch (error) {
         console.error('OCR failed:', error);
         setFiles(prev => prev.map((f, i) => 
           i === index ? { ...f, isProcessingOCR: false } : f
-        ) as FileWithOCR[]);
+        ));
       }
     };
 
@@ -353,6 +413,7 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
               background={background}
               extractedText={file.extractedText}
               isProcessingOCR={file.isProcessingOCR}
+              playlist={file.playlist}
             />
             <div className="flex items-center gap-2">
               <p className="text-lg font-medium text-white/80">
