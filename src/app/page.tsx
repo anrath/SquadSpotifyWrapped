@@ -1,4 +1,5 @@
 import { RoundedTool } from "./rounded-tool";
+import { NowPlaying } from "@/components/NowPlaying";
 
 export const metadata = {
   title: "Squad Spotify Wrapped",
@@ -9,6 +10,7 @@ export default function Home() {
   return (
     <div className="flex min-h-screen flex-col justify-between p-8 font-[family-name:var(--font-geist-sans)] sm:p-20">
       <main className="flex flex-grow flex-col items-center justify-center">
+        <NowPlaying />
         <div>
           Hi. I&apos;m{" "}
           <a
@@ -22,6 +24,7 @@ export default function Home() {
           . I built this because I wanted my squad to experience each
           other&apos;s music. I hope you enjoy it.
         </div>
+        
         <div className="mt-4">
           <RoundedTool />
         </div>
