@@ -299,6 +299,15 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
   const [isAllOCRComplete, setIsAllOCRComplete] = useState(false);
   const [playlistId, setPlaylistId] = useState<string>("");
   const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("Creating your playlist...");
+  
+  const loadingMessages = [
+    "Creating your playlist...",
+    "Finding your songs...",
+    "Merging your tastes...",
+    "Curating the perfect mix...",
+    "Almost there..."
+  ];
 
   useEffect(() => {
     setFiles(
@@ -363,6 +372,18 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
     updateOCRStatus();
   }, [files]);
 
+  useEffect(() => {
+    if (!isCreatingPlaylist) return;
+
+    let currentIndex = 0;
+    const interval = setInterval(() => {
+      currentIndex = Math.min(currentIndex + 1, loadingMessages.length - 1);
+      setLoadingMessage(loadingMessages[currentIndex]);
+    }, 4500);
+
+    return () => clearInterval(interval);
+  }, [isCreatingPlaylist]);
+
   const handleCreatePlaylist = async () => {
     setPlaylistId("");
     setIsCreatingPlaylist(true);
@@ -422,16 +443,16 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
       {isCreatingPlaylist ? (
         <div className="flex flex-col items-center gap-2 text-white/80">
           <Loader2 className="h-8 w-8 animate-spin" />
-          <p>Creating your playlist... This may take up to 15 seconds.</p>
+          <p className="transition-opacity duration-300">{loadingMessage}</p>
         </div>
       ) : (
         playlistId && (
-          <div className="w-full space-y-4">
+          <div className="max-w-[500px] mx-auto space-y-4">
             <iframe
               style={{ borderRadius: "12px" }}
               src={`https://open.spotify.com/embed/playlist/${playlistId}?utm_source=generator&theme=0`}
               width="100%"
-              height="352"
+              height="500"
               allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
               loading="lazy"
             ></iframe>
