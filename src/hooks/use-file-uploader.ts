@@ -58,10 +58,11 @@ export type FileUploadItem = {
 
 export type FileUploaderResult = {
   files: FileUploadItem[];
-  handleFileUpload: (files: File[]) => void;
+  handleFileUpload: (files: File[]) => Promise<void>;
   handleFileUploadEvent: (event: ChangeEvent<HTMLInputElement>) => void;
   cancel: () => void;
   removeFile: (index: number) => void;
+  debug: boolean;
 };
 
 /**
@@ -71,8 +72,9 @@ export type FileUploaderResult = {
  * - handleFileUpload: Function to handle file input change events
  * - cancel: Function to reset the upload state
  * - removeFile: Function to remove a file from the upload list
+ * - debug: Boolean flag to enable debug mode
  */
-export const useFileUploader = (): FileUploaderResult => {
+export const useFileUploader = (debug = false): FileUploaderResult => {
   const [files, setFiles] = useState<FileUploadItem[]>([]);
 
   const processFile = async (file: File): Promise<FileUploadItem> => {
@@ -143,5 +145,6 @@ export const useFileUploader = (): FileUploaderResult => {
     handleFileUploadEvent,
     cancel,
     removeFile,
+    debug,
   };
 };
