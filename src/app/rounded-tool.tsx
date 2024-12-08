@@ -10,55 +10,15 @@ import {
   type FileUploaderResult,
 } from "@/hooks/use-file-uploader";
 import { FileDropzone } from "@/components/shared/file-dropzone";
-import Tesseract from 'tesseract.js';
-import { config } from '@/config/env';
-
-class SpotifyApiService {
-  private apiKey: string;
-
-  constructor(apiKey: string = config.spotify.clientId) {
-    this.apiKey = apiKey;
-  }
-
-  async searchTrack(query: string): Promise<string> {
-    // TODO: Implement real Spotify API search
-    return "spotify:track:mock_id";
-  }
-
-  async createPlaylist(name: string, tracks: string[]): Promise<SpotifyPlaylist> {
-    // TODO: Implement real playlist creation
-    return {
-      id: "mock_playlist_id",
-      url: "https://open.spotify.com/playlist/mock_playlist_id"
-    };
-  }
-}
-
-class PlaylistGenerator {
-  private spotifyApi: SpotifyApiService;
-
-  constructor(spotifyApi: SpotifyApiService) {
-    this.spotifyApi = spotifyApi;
-  }
-
-  async generateFromText(text: string): Promise<SpotifyPlaylist> {
-    // TODO: Implement real playlist generation logic
-    return {
-      id: "mock_playlist_id", 
-      url: "https://open.spotify.com/playlist/mock_playlist_id"
-    };
-  }
-}
-
+import Tesseract from "tesseract.js";
 
 type Radius = number;
 
 type BackgroundOption = "white" | "black" | "transparent";
 
-type FileWithOCR = FileUploaderResult['files'][0] & {
+type FileWithOCR = FileUploaderResult["files"][0] & {
   extractedText?: string;
   isProcessingOCR?: boolean;
-  playlist?: SpotifyPlaylist;
 };
 
 type SpotifyData = {
@@ -72,34 +32,34 @@ type TesseractResult = {
   };
 };
 
-interface SpotifyPlaylist {
-  id: string;
-  url: string;
-}
-
 function parseSpotifyText(text: string): SpotifyData | string {
-  const cleanText = text.replace(/\s+/g, ' ').trim();
+  const cleanText = text.replace(/\s+/g, " ").trim();
 
-  if (!cleanText.includes('Top Artists Top Songs')) {
+  if (!cleanText.includes("Top Artists Top Songs")) {
     return cleanText;
   }
 
   try {
     // Add newlines at key positions to normalize the text structure
     const normalizedText = cleanText
-      .replace(/(\s*Top Artists Top Songs)/, '\n$1\n')
-      .replace(/(\s*Minutes Listened)/, '\n$1')
-      .replace(/(\s*1\s+[^\d]+\s+1\s+)/, '\n$1')
-      .replace(/(\s*2\s+[^\d]+\s+2\s+)/, '\n$1')
-      .replace(/(\s*3\s+[^\d]+\s+3\s+)/, '\n$1')
-      .replace(/(\s*4\s+[^\d]+\s+4\s+)/, '\n$1')
-      .replace(/(\s*5\s+[^\d]+\s+5\s+)/, '\n$1');
+      .replace(/(\s*Top Artists Top Songs)/, "\n$1\n")
+      .replace(/(\s*Minutes Listened)/, "\n$1")
+      .replace(/(\s*1\s+[^\d]+\s+1\s+)/, "\n$1")
+      .replace(/(\s*2\s+[^\d]+\s+2\s+)/, "\n$1")
+      .replace(/(\s*3\s+[^\d]+\s+3\s+)/, "\n$1")
+      .replace(/(\s*4\s+[^\d]+\s+4\s+)/, "\n$1")
+      .replace(/(\s*5\s+[^\d]+\s+5\s+)/, "\n$1");
 
-    const lines = normalizedText.split('\n').map(line => line.trim()).filter(Boolean);
+    const lines = normalizedText
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
     const artists: string[] = [];
     const songs: string[] = [];
 
-    const startIndex = lines.findIndex(line => line.includes('Top Artists Top Songs'));
+    const startIndex = lines.findIndex((line) =>
+      line.includes("Top Artists Top Songs"),
+    );
     if (startIndex === -1) return cleanText;
 
     for (let i = 1; i <= 5; i++) {
@@ -108,10 +68,10 @@ function parseSpotifyText(text: string): SpotifyData | string {
 
       const parts = line.split(new RegExp(`${i}\\s+`)).filter(Boolean);
       if (parts?.[0] && parts?.[1]) {
-        const artist = parts[0].replace(/^\d+\s*/, '').trim();
+        const artist = parts[0].replace(/^\d+\s*/, "").trim();
         const song = parts[1]
-          .replace(/^\d+\s*/, '')
-          .replace(/\.\.\.$/, '')
+          .replace(/^\d+\s*/, "")
+          .replace(/\.\.\.$/, "")
           .trim();
 
         artists.push(artist);
@@ -122,13 +82,13 @@ function parseSpotifyText(text: string): SpotifyData | string {
     if (artists.length === 5 && songs.length === 5) {
       return {
         "Top Artists": artists,
-        "Top Songs": songs
+        "Top Songs": songs,
       } as SpotifyData;
     }
 
     return cleanText;
   } catch (error) {
-    console.error('Error parsing Spotify text:', error);
+    console.error("Error parsing Spotify text:", error);
     return text;
   }
 }
@@ -199,34 +159,7 @@ interface ImageRendererProps {
   background: BackgroundOption;
   extractedText?: string | SpotifyData;
   isProcessingOCR?: boolean;
-  playlist?: SpotifyPlaylist;
 }
-
-// const createSpotifyPlaylist = async (data: SpotifyData): Promise<SpotifyPlaylist | null> => {
-//   try {
-//     const spotifyApi = new SpotifyApiService({
-//       clientId: config.spotify.clientId,
-//       clientSecret: config.spotify.clientSecret
-//     });
-
-//     const playlistGenerator = new PlaylistGenerator(spotifyApi);
-    
-//     const playlistId = await playlistGenerator.generatePlaylist({
-//       songs: data?.["Top Songs"] ?? [],
-//       artists: data?.["Top Artists"] ?? []
-//     });
-
-//     if (!playlistId) return null;
-
-//     return {
-//       id: playlistId,
-//       url: `https://open.spotify.com/playlist/${playlistId}`
-//     };
-//   } catch (error) {
-//     console.error('Error creating playlist:', error);
-//     return null;
-//   }
-// };
 
 const ImageRenderer = ({
   imageContent,
@@ -234,7 +167,6 @@ const ImageRenderer = ({
   background,
   extractedText,
   isProcessingOCR,
-  playlist,
 }: ImageRendererProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -250,49 +182,41 @@ const ImageRenderer = ({
   const renderExtractedText = () => {
     if (!extractedText) return null;
 
-    if (typeof extractedText === 'string') {
+    if (typeof extractedText === "string") {
       return (
-        <p className="text-white/70 text-sm whitespace-pre-wrap">{extractedText}</p>
+        <p className="whitespace-pre-wrap text-sm text-white/70">
+          {extractedText}
+        </p>
       );
     }
 
     return (
       <div className="space-y-4">
         <div>
-          <h4 className="text-white/90 font-medium mb-2">Top Artists</h4>
-          <ol className="list-decimal list-inside text-white/70">
+          <h4 className="mb-2 font-medium text-white/90">Top Artists</h4>
+          <ol className="list-inside list-decimal text-white/70">
             {extractedText["Top Artists"].map((artist, i) => (
               <li key={i}>{artist}</li>
             ))}
           </ol>
         </div>
         <div>
-          <h4 className="text-white/90 font-medium mb-2">Top Songs</h4>
-          <ol className="list-decimal list-inside text-white/70">
+          <h4 className="mb-2 font-medium text-white/90">Top Songs</h4>
+          <ol className="list-inside list-decimal text-white/70">
             {extractedText["Top Songs"].map((song, i) => (
               <li key={i}>{song}</li>
             ))}
           </ol>
         </div>
-        {playlist && (
-          <div className="mt-4">
-            <h4 className="text-white/90 font-medium mb-2">Generated Playlist</h4>
-            <a
-              href={playlist.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-green-400 hover:text-green-300 underline"
-            >
-              Open in Spotify
-            </a>
-          </div>
-        )}
       </div>
     );
   };
 
   return (
-    <div ref={containerRef} className="flex flex-col gap-4 w-[500px] max-w-[95vw]">
+    <div
+      ref={containerRef}
+      className="flex w-[500px] max-w-[95vw] flex-col gap-4"
+    >
       <div className="relative">
         <div
           className="absolute inset-0"
@@ -305,14 +229,16 @@ const ImageRenderer = ({
           style={{ width: "100%", height: "auto", objectFit: "contain" }}
         />
       </div>
-      
+
       {isProcessingOCR && (
-        <div className="text-white/70 text-sm">Extracting text...</div>
+        <div className="text-sm text-white/70">Extracting text...</div>
       )}
-      
+
       {extractedText && (
-        <div className="bg-white/10 rounded-lg p-4">
-          <h3 className="text-white/80 text-sm font-medium mb-2">Extracted Text:</h3>
+        <div className="rounded-lg bg-white/10 p-4">
+          <h3 className="mb-2 text-sm font-medium text-white/80">
+            Extracted Text:
+          </h3>
           {renderExtractedText()}
         </div>
       )}
@@ -359,7 +285,12 @@ function SaveAsPngButton({
 }
 
 function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
-  const { files: originalFiles, removeFile, handleFileUploadEvent, cancel } = props.fileUploaderProps;
+  const {
+    files: originalFiles,
+    removeFile,
+    handleFileUploadEvent,
+    cancel,
+  } = props.fileUploaderProps;
   const [files, setFiles] = useState<FileWithOCR[]>([]);
   const [radius, setRadius] = useLocalStorage<Radius>("roundedTool_radius", 2);
   const [isCustomRadius, setIsCustomRadius] = useState(false);
@@ -369,45 +300,51 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
   );
 
   useEffect(() => {
-    setFiles(originalFiles.map(file => ({ ...file, extractedText: undefined, isProcessingOCR: false })));
+    setFiles(
+      originalFiles.map((file) => ({
+        ...file,
+        extractedText: undefined,
+        isProcessingOCR: false,
+      })),
+    );
   }, [originalFiles]);
 
   useEffect(() => {
     const processOCR = async (file: FileWithOCR, index: number) => {
       if (file.extractedText || file.isProcessingOCR) return;
 
-      setFiles(prev => prev.map((f, i) => 
-        i === index ? { ...f, isProcessingOCR: true } : f
-      ));
+      setFiles((prev) =>
+        prev.map((f, i) => (i === index ? { ...f, isProcessingOCR: true } : f)),
+      );
 
       try {
-        const result = await Tesseract.recognize(
+        const result = (await Tesseract.recognize(
           file.imageContent,
-          'eng'
-        ) as TesseractResult;
+          "eng",
+        )) as TesseractResult;
 
         if (result?.data?.text) {
           const parsedText = parseSpotifyText(result.data.text);
-          
-          let playlist: SpotifyPlaylist | null = null;
-          // if (typeof parsedText !== 'string') {
-          //   playlist = await createSpotifyPlaylist(parsedText);
-          // }
 
-          setFiles(prev => prev.map((f, i) => 
-            i === index ? { 
-              ...f, 
-              extractedText: parsedText, 
-              isProcessingOCR: false,
-              playlist: playlist ?? undefined
-            } : f
-          ));
+          setFiles((prev) =>
+            prev.map((f, i) =>
+              i === index
+                ? {
+                    ...f,
+                    extractedText: parsedText,
+                    isProcessingOCR: false,
+                  }
+                : f,
+            ),
+          );
         }
       } catch (error) {
-        console.error('OCR failed:', error);
-        setFiles(prev => prev.map((f, i) => 
-          i === index ? { ...f, isProcessingOCR: false } : f
-        ));
+        console.error("OCR failed:", error);
+        setFiles((prev) =>
+          prev.map((f, i) =>
+            i === index ? { ...f, isProcessingOCR: false } : f,
+          ),
+        );
       }
     };
 
@@ -449,7 +386,6 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
               background={background}
               extractedText={file.extractedText}
               isProcessingOCR={file.isProcessingOCR}
-              playlist={file.playlist}
             />
             <div className="flex items-center gap-2">
               <p className="text-lg font-medium text-white/80">
@@ -457,7 +393,7 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
               </p>
               <button
                 onClick={() => removeFile(index)}
-                className="rounded-full bg-red-700 w-6 h-6 flex items-center justify-center text-white/90 hover:bg-red-800"
+                className="flex h-6 w-6 items-center justify-center rounded-full bg-red-700 text-white/90 hover:bg-red-800"
               >
                 ✕
               </button>
