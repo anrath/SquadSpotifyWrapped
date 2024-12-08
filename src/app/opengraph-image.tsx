@@ -2,7 +2,7 @@ import { GenerateImage } from "@/app/utils/og-generator";
 
 export const runtime = "edge";
 
-export const alt = "Corner Rounder - SquadSpotifyWrapped";
+export const alt = "SquadSpotifyWrapped";
 export const contentType = "image/png";
 
 export const size = {
@@ -13,7 +13,7 @@ export const size = {
 // Image generation
 export default async function Image() {
   return await GenerateImage({
-    title: "Corner Rounder",
-    description: "Round the corners of an image. For free.",
+    title: "Squad Spotify Wrapped",
+    description: "Generate your Squad's Spotify Wrapped playlist.",
   });
 }

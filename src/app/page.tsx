@@ -1,8 +1,8 @@
 import { RoundedTool } from "./rounded-tool";
 
 export const metadata = {
-  title: "Corner Rounder - SquadSpotifyWrapped",
-  description: "Round corners on an image (for free because duh)",
+  title: "Squad Spotify Wrapped",
+  description: "Generate your Squad's Spotify Wrapped playlist.",
 };
 
 export default function Home() {
