@@ -18,22 +18,6 @@ type SpotifyData = {
   "Top Songs": string[];
 };
 
-interface SpotifyPlayingData {
-  is_playing: boolean;
-  item: {
-    name: string;
-    album: {
-      name: string;
-      artists: Array<{ name: string }>;
-      images: [{ url: string }];
-    };
-    external_urls: {
-      spotify: string;
-    };
-  };
-  currently_playing_type: string;
-}
-
 type PlaylistCreationData = {
   data: SpotifyData[];
 };
@@ -96,7 +80,41 @@ const addTracksToPlaylist = async (playlistId: string, trackUris: string[]) => {
   );
 };
 
-const searchTrack = async (query: string, isArtist = false) => {
+const searchTrack = async (query: string, isArtist = false): Promise<Array<{
+  album?: {
+    album_type: string;
+    artists: Array<{
+      external_urls: { spotify: string };
+      href: string;
+      id: string;
+      name: string;
+      type: string;
+      uri: string;
+    }>;
+    id: string;
+    name: string;
+    uri: string;
+  };
+  artists: Array<{
+    external_urls: { spotify: string };
+    href: string;
+    id: string;
+    name: string;
+    type: string;
+    uri: string;
+  }>;
+  available_markets?: string[];
+  disc_number?: number;
+  duration_ms?: number;
+  explicit?: boolean;
+  id: string;
+  name: string;
+  uri: string;
+  popularity?: number;
+  preview_url?: string | null;
+  track_number?: number;
+  type: string;
+}>> => {
   const access_token = await getAccessToken();
 
   type SpotifySearchResponse = {
@@ -106,7 +124,47 @@ const searchTrack = async (query: string, isArtist = false) => {
       }>;
     };
     tracks?: {
-      items: Array<unknown>;
+      href: string;
+      limit: number;
+      next: string | null;
+      offset: number;
+      previous: string | null;
+      total: number;
+      items: Array<{
+        album: {
+          album_type: string;
+          artists: Array<{
+            external_urls: { spotify: string };
+            href: string;
+            id: string;
+            name: string;
+            type: string;
+            uri: string;
+          }>;
+          id: string;
+          name: string;
+          uri: string;
+        };
+        artists: Array<{
+          external_urls: { spotify: string };
+          href: string;
+          id: string;
+          name: string;
+          type: string;
+          uri: string;
+        }>;
+        available_markets: string[];
+        disc_number: number;
+        duration_ms: number;
+        explicit: boolean;
+        id: string;
+        name: string;
+        uri: string;
+        popularity: number;
+        preview_url: string | null;
+        track_number: number;
+        type: string;
+      }>;
     };
   };
 
@@ -141,6 +199,27 @@ const searchTrack = async (query: string, isArtist = false) => {
   return response.data.tracks?.items ?? [];
 };
 
+const calculateLevenshteinDistance = (str1: string, str2: string): number => {
+  const currentRow = Array.from({length: str2.length + 1}, (_, i) => i);
+  let previousRow = new Array(str2.length + 1);
+
+  for (let i = 0; i < str1.length; i++) {
+    previousRow = [...currentRow];
+    currentRow[0] = i + 1;
+    
+    for (let j = 0; j < str2.length; j++) {
+      const substitutionCost = str1[i] === str2[j] ? 0 : 1;
+      currentRow[j + 1] = Math.min(
+        currentRow[j] + 1, // deletion
+        previousRow[j + 1] + 1, // insertion 
+        previousRow[j] + substitutionCost // substitution
+      );
+    }
+  }
+
+  return currentRow[str2.length] ?? 0;
+};
+
 export async function POST(request: Request) {
   try {
     const body: PlaylistCreationData = await request.json();
@@ -159,31 +238,40 @@ export async function POST(request: Request) {
 
     // Process songs
     for (const userData of body.data) {
+      const userTopArtists = new Set(userData["Top Artists"].map(artist => artist.toLowerCase()));
+
       for (const song of userData["Top Songs"]) {
         const searchResults = await searchTrack(song);
-        if (searchResults.length > 0) {
-          // For songs without "...", try to find exact match first
-          if (!song.endsWith("...")) {
-            const exactMatch = searchResults.find(
-              (track: { name: string }) => track.name.toLowerCase() === song.toLowerCase()
-            );
-            
-            if (exactMatch && 'uri' in exactMatch) {
-              const uri = exactMatch.uri as string;
-              if (!addedTrackUris.has(uri)) {
-                await addTracksToPlaylist(playlistId, [uri]);
-                addedTrackUris.add(uri);
-              }
-              continue;
-            }
-          }
+        if (searchResults.length === 0) continue;
 
-          // Use first result if no exact match or song is truncated
-          const track = searchResults[0] as { uri: string };
-          if (!addedTrackUris.has(track.uri)) {
-            await addTracksToPlaylist(playlistId, [track.uri]);
-            addedTrackUris.add(track.uri);
-          }
+        // Filter results using fuzzy matching and calculate distances
+        const relevantResults = searchResults.map((track) => {
+          const trackName = (track as { name: string }).name;
+          const searchTerm = song.endsWith("...") ? song.slice(0, -3) : song;
+          const distance = song.endsWith("...")
+            ? calculateLevenshteinDistance(trackName.slice(0, searchTerm.length), searchTerm)
+            : calculateLevenshteinDistance(trackName, searchTerm);
+          const maxDistance = Math.floor(searchTerm.length * 0.1);
+          return { track, distance, isRelevant: distance <= maxDistance };
+        }).filter(result => result.isRelevant);
+
+        // Try to find a track from user's top artists
+        const trackFromTopArtist = relevantResults.find(
+          (result) => (result.track as { artists?: Array<{ name: string }> }).artists?.some(
+            artist => userTopArtists.has(artist.name.toLowerCase())
+          )
+        )?.track;
+
+        // If no track from top artists, use the one with lowest distance
+        const bestMatch = relevantResults.length > 0 
+          ? relevantResults.reduce((min, curr) => curr.distance < min.distance ? curr : min).track
+          : searchResults[0];
+
+        const trackToAdd = trackFromTopArtist ?? bestMatch;
+
+        if (!addedTrackUris.has(trackToAdd.uri)) {
+          await addTracksToPlaylist(playlistId, [trackToAdd.uri]);
+          addedTrackUris.add(trackToAdd.uri);
         }
       }
     }

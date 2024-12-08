@@ -1,4 +1,4 @@
-import { RoundedTool } from "./rounded-tool";
+import { WrappedTool } from "./wrapped-tool";
 // import { PostTest } from "@/components/PostTest";
 
 export const metadata = {
@@ -26,7 +26,7 @@ export default function Home() {
         </div>
         
         <div className="mt-4">
-          <RoundedTool />
+          <WrappedTool />
         </div>
       </main>
       <footer className="mt-8 text-center text-sm text-gray-500">

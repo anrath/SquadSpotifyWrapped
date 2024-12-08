@@ -281,7 +281,7 @@ function SaveAsPngButton({
   );
 }
 
-function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
+function WrappedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
   const {
     files: originalFiles,
     removeFile,
@@ -290,10 +290,10 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
     debug,
   } = props.fileUploaderProps;
   const [files, setFiles] = useState<FileWithOCR[]>([]);
-  const [radius, setRadius] = useLocalStorage<Radius>("roundedTool_radius", 32);
+  const [radius, setRadius] = useLocalStorage<Radius>("WrappedTool_radius", 32);
   const [isCustomRadius, setIsCustomRadius] = useState(false);
   const [background, setBackground] = useLocalStorage<BackgroundOption>(
-    "roundedTool_background",
+    "WrappedTool_background",
     "transparent",
   );
   const [isAllOCRComplete, setIsAllOCRComplete] = useState(false);
@@ -413,6 +413,7 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
       console.error("Failed to create playlist:", error);
     } finally {
       setIsCreatingPlaylist(false);
+      setLoadingMessage(loadingMessages[0] ?? '');
     }
   };
 
@@ -545,7 +546,7 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
   );
 }
 
-export function RoundedTool() {
+export function WrappedTool() {
   const fileUploaderProps = useFileUploader(false);
 
   return (
@@ -555,7 +556,7 @@ export function RoundedTool() {
       dropText="Drop image files"
       maxFiles={10}
     >
-      <RoundedToolCore fileUploaderProps={fileUploaderProps} />
+      <WrappedToolCore fileUploaderProps={fileUploaderProps} />
     </FileDropzone>
   );
 }
