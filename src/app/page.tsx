@@ -17,11 +17,11 @@ export default function Home() {
             href="https://kasralekan.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:underline"
+            className="italic hover:underline"
           >
             Kasra
           </a>
-          . I built this because I wanted my squad to experience each
+          . I built this because I wanted my friends to experience each
           other&apos;s music. I hope you enjoy it.
         </div>
         

@@ -213,10 +213,7 @@ const ImageRenderer = ({
   };
 
   return (
-    <div
-      ref={containerRef}
-      className="flex w-full flex-col gap-4"
-    >
+    <div ref={containerRef} className="flex w-full flex-col gap-4">
       <div className="relative">
         <div
           className="absolute inset-0"
@@ -412,7 +409,7 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
   if (files.length === 0) {
     return (
       <UploadBox
-        title="Add your images and a playlist will be generated in ~10 seconds. Quick and easy."
+        title="Add your friends' Spotify Wrapped images (with their top artists and songs) and a playlist will be generated in ~10 seconds. Quick and easy."
         subtitle="Upload up to 10 images at once. Allows pasting images from clipboard"
         description="Upload Images"
         accept="image/*"
@@ -425,7 +422,7 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
   return (
     <div className="mx-auto flex max-w-[95vw] flex-col items-center justify-center gap-6 p-6">
       {playlistId && (
-        <div className="w-full">
+        <div className="w-full space-y-4">
           <iframe
             style={{ borderRadius: "12px" }}
             src={`https://open.spotify.com/embed/playlist/${playlistId}?utm_source=generator&theme=0`}
@@ -434,18 +431,48 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
             allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
             loading="lazy"
           ></iframe>
+          <p className="text-center text-sm text-red-500">
+            This playlist may be deleted in the future. Please make a copy for
+            yourself if you&apos;d like to keep it.
+          </p>
         </div>
       )}
 
-      <div className="grid w-full gap-4 place-items-center">
-        <div className={`grid gap-4 ${
-          files.length === 1 ? 'w-full sm:w-1/2 md:w-1/3 lg:w-1/4' :
-          files.length === 2 ? 'w-full grid-cols-1 sm:grid-cols-2 md:w-2/3 lg:w-1/2' :
-          files.length === 3 ? 'w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:w-3/4' :
-          'w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
-        }`}>
+      <div className="flex gap-3">
+        <button
+          onClick={cancel}
+          className="rounded-lg bg-red-700 px-4 py-2 text-sm font-medium text-white/90 transition-colors hover:bg-red-800"
+        >
+          Cancel
+        </button>
+        {/* {files.map((file, index) => (
+          <SaveAsPngButton
+            key={file.imageMetadata.name + index}
+            imageContent={file.imageContent}
+            radius={radius}
+            background={background}
+            imageMetadata={file.imageMetadata}
+          />
+        ))} */}
+      </div>
+
+      <div className="grid w-full place-items-center gap-4">
+        <div
+          className={`grid gap-4 ${
+            files.length === 1
+              ? "w-full sm:w-1/2 md:w-1/3 lg:w-1/4 min-w-[20rem]"
+              : files.length === 2
+                ? "w-full grid-cols-1 sm:grid-cols-2 md:w-2/3 lg:w-1/2"
+                : files.length === 3
+                  ? "w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:w-3/4"
+                  : "w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+          }`}
+        >
           {files.map((file, index) => (
-            <div key={file.imageMetadata.name + index} className="relative w-full">
+            <div
+              key={file.imageMetadata.name + index}
+              className="relative w-full"
+            >
               <div className="flex w-full flex-col items-center gap-4 rounded-xl p-4">
                 <ImageRenderer
                   imageContent={file.imageContent}
@@ -455,7 +482,7 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
                   isProcessingOCR={file.isProcessingOCR}
                 />
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium text-white/80 truncate max-w-[12rem]">
+                  <p className="max-w-[12rem] truncate text-sm font-medium text-white/80">
                     {file.imageMetadata.name}
                   </p>
                   <button
@@ -469,24 +496,6 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
             </div>
           ))}
         </div>
-      </div>
-
-      <div className="flex gap-3">
-        <button
-          onClick={cancel}
-          className="rounded-lg bg-red-700 px-4 py-2 text-sm font-medium text-white/90 transition-colors hover:bg-red-800"
-        >
-          Cancel
-        </button>
-        {files.map((file, index) => (
-          <SaveAsPngButton
-            key={file.imageMetadata.name + index}
-            imageContent={file.imageContent}
-            radius={radius}
-            background={background}
-            imageMetadata={file.imageMetadata}
-          />
-        ))}
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 ## SquadSpotifyWrapped - Spotify Wrapped For Your Squad (By Kasra)
 
-I wanted a better way to experience my squad&apos;s music so I built it. Open source because why not. Free because it only runs on client.
+I wanted a better way to experience my friends&apos;s music so I built it. Open source because why not. Free because it only runs on client.
 
 ## Credits
 
