@@ -1,5 +1,5 @@
 import { RoundedTool } from "./rounded-tool";
-import { PostTest } from "@/components/PostTest";
+// import { PostTest } from "@/components/PostTest";
 
 export const metadata = {
   title: "Squad Spotify Wrapped",
@@ -10,7 +10,7 @@ export default function Home() {
   return (
     <div className="flex min-h-screen flex-col justify-between p-8 font-[family-name:var(--font-geist-sans)] sm:p-20">
       <main className="flex flex-grow flex-col items-center justify-center">
-        <PostTest />
+        {/* <PostTest /> */}
         <div>
           Hi. I&apos;m{" "}
           <a

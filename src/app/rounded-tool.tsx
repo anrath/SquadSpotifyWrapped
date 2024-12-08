@@ -215,7 +215,7 @@ const ImageRenderer = ({
   return (
     <div
       ref={containerRef}
-      className="flex w-[500px] max-w-[95vw] flex-col gap-4"
+      className="flex w-full flex-col gap-4"
     >
       <div className="relative">
         <div
@@ -290,9 +290,10 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
     removeFile,
     handleFileUploadEvent,
     cancel,
+    debug,
   } = props.fileUploaderProps;
   const [files, setFiles] = useState<FileWithOCR[]>([]);
-  const [radius, setRadius] = useLocalStorage<Radius>("roundedTool_radius", 2);
+  const [radius, setRadius] = useLocalStorage<Radius>("roundedTool_radius", 32);
   const [isCustomRadius, setIsCustomRadius] = useState(false);
   const [background, setBackground] = useLocalStorage<BackgroundOption>(
     "roundedTool_background",
@@ -352,7 +353,7 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
 
     const updateOCRStatus = () => {
       const allComplete = files.every(
-        (file) => file.extractedText !== undefined && !file.isProcessingOCR
+        (file) => file.extractedText !== undefined && !file.isProcessingOCR,
       );
       setIsAllOCRComplete(allComplete);
     };
@@ -370,23 +371,28 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
 
       const spotifyData = files
         .map((file) => file.extractedText)
-        .filter((text): text is SpotifyData => 
-          text !== undefined && typeof text === "object" && text !== null
+        .filter(
+          (text): text is SpotifyData =>
+            text !== undefined && typeof text === "object" && text !== null,
         );
 
-      if (spotifyData.length > 0) {
-        try {
-          const response = await fetch("/api/spotify", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ data: spotifyData }),
-          });
-          const result = await response.json() as { playlistId: string };
-          setPlaylistId(result.playlistId);
-        } catch (error) {
-          console.error("Failed to create playlist:", error);
+      if (debug) {
+        setPlaylistId("1GAY52k57voj0tyjYVGWaP");
+      } else {
+        if (spotifyData.length > 0) {
+          try {
+            const response = await fetch("/api/spotify", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ data: spotifyData }),
+            });
+            const result = (await response.json()) as { playlistId: string };
+            setPlaylistId(result.playlistId);
+          } catch (error) {
+            console.error("Failed to create playlist:", error);
+          }
         }
       }
     };
@@ -394,19 +400,19 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
     void createPlaylist();
   }, [isAllOCRComplete, files]);
 
-  const handleRadiusChange = (value: number | "custom") => {
-    if (value === "custom") {
-      setIsCustomRadius(true);
-    } else {
-      setRadius(value);
-      setIsCustomRadius(false);
-    }
-  };
+  // const handleRadiusChange = (value: number | "custom") => {
+  //   if (value === "custom") {
+  //     setIsCustomRadius(true);
+  //   } else {
+  //     setRadius(value);
+  //     setIsCustomRadius(false);
+  //   }
+  // };
 
   if (files.length === 0) {
     return (
       <UploadBox
-        title="Add rounded borders to your images. Quick and easy."
+        title="Add your images and a playlist will be generated in ~10 seconds. Quick and easy."
         subtitle="Upload up to 10 images at once. Allows pasting images from clipboard"
         description="Upload Images"
         accept="image/*"
@@ -417,7 +423,7 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
   }
 
   return (
-    <div className="mx-auto flex max-w-[min(100vw,42rem)] flex-col items-center justify-center gap-6 p-6">
+    <div className="mx-auto flex max-w-[95vw] flex-col items-center justify-center gap-6 p-6">
       {playlistId && (
         <div className="w-full">
           <iframe
@@ -430,57 +436,40 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
           ></iframe>
         </div>
       )}
-      
-      {files.map((file, index) => (
-        <div key={file.imageMetadata.name + index} className="relative w-full">
-          <div className="flex w-full flex-col items-center gap-4 rounded-xl p-6">
-            <ImageRenderer
-              imageContent={file.imageContent}
-              radius={radius}
-              background={background}
-              extractedText={file.extractedText}
-              isProcessingOCR={file.isProcessingOCR}
-            />
-            <div className="flex items-center gap-2">
-              <p className="text-lg font-medium text-white/80">
-                {file.imageMetadata.name}
-              </p>
-              <button
-                onClick={() => removeFile(index)}
-                className="flex h-6 w-6 items-center justify-center rounded-full bg-red-700 text-white/90 hover:bg-red-800"
-              >
-                ✕
-              </button>
+
+      <div className="grid w-full gap-4 place-items-center">
+        <div className={`grid gap-4 ${
+          files.length === 1 ? 'w-full sm:w-1/2 md:w-1/3 lg:w-1/4' :
+          files.length === 2 ? 'w-full grid-cols-1 sm:grid-cols-2 md:w-2/3 lg:w-1/2' :
+          files.length === 3 ? 'w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:w-3/4' :
+          'w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+        }`}>
+          {files.map((file, index) => (
+            <div key={file.imageMetadata.name + index} className="relative w-full">
+              <div className="flex w-full flex-col items-center gap-4 rounded-xl p-4">
+                <ImageRenderer
+                  imageContent={file.imageContent}
+                  radius={radius}
+                  background={background}
+                  extractedText={file.extractedText}
+                  isProcessingOCR={file.isProcessingOCR}
+                />
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium text-white/80 truncate max-w-[12rem]">
+                    {file.imageMetadata.name}
+                  </p>
+                  <button
+                    onClick={() => removeFile(index)}
+                    className="flex h-6 w-6 items-center justify-center rounded-full bg-red-700 text-white/90 hover:bg-red-800"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
+          ))}
         </div>
-      ))}
-
-      <div className="flex flex-col items-center rounded-lg bg-white/5 p-3">
-        <span className="text-sm text-white/60">Original Size</span>
-        <span className="font-medium text-white">
-          {files[0]?.imageMetadata.width} × {files[0]?.imageMetadata.height}
-        </span>
       </div>
-
-      <BorderRadiusSelector
-        title="Border Radius"
-        options={[2, 4, 8, 16, 32, 64]}
-        selected={isCustomRadius ? "custom" : radius}
-        onChange={handleRadiusChange}
-        customValue={radius}
-        onCustomValueChange={setRadius}
-      />
-
-      <OptionSelector
-        title="Background"
-        options={["white", "black", "transparent"]}
-        selected={background}
-        onChange={setBackground}
-        formatOption={(option) =>
-          option.charAt(0).toUpperCase() + option.slice(1)
-        }
-      />
 
       <div className="flex gap-3">
         <button
@@ -504,7 +493,7 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
 }
 
 export function RoundedTool() {
-  const fileUploaderProps = useFileUploader();
+  const fileUploaderProps = useFileUploader(true);
 
   return (
     <FileDropzone
