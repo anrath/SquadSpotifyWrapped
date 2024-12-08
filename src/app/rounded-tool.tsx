@@ -11,9 +11,45 @@ import {
 } from "@/hooks/use-file-uploader";
 import { FileDropzone } from "@/components/shared/file-dropzone";
 import Tesseract from 'tesseract.js';
-import { SpotifyApiService } from '@/services/spotifyApi';
-import { PlaylistGenerator } from '@/utils/playlistGenerator';
 import { config } from '@/config/env';
+
+class SpotifyApiService {
+  private apiKey: string;
+
+  constructor(apiKey: string = config.spotify.clientId) {
+    this.apiKey = apiKey;
+  }
+
+  async searchTrack(query: string): Promise<string> {
+    // TODO: Implement real Spotify API search
+    return "spotify:track:mock_id";
+  }
+
+  async createPlaylist(name: string, tracks: string[]): Promise<SpotifyPlaylist> {
+    // TODO: Implement real playlist creation
+    return {
+      id: "mock_playlist_id",
+      url: "https://open.spotify.com/playlist/mock_playlist_id"
+    };
+  }
+}
+
+class PlaylistGenerator {
+  private spotifyApi: SpotifyApiService;
+
+  constructor(spotifyApi: SpotifyApiService) {
+    this.spotifyApi = spotifyApi;
+  }
+
+  async generateFromText(text: string): Promise<SpotifyPlaylist> {
+    // TODO: Implement real playlist generation logic
+    return {
+      id: "mock_playlist_id", 
+      url: "https://open.spotify.com/playlist/mock_playlist_id"
+    };
+  }
+}
+
 
 type Radius = number;
 
@@ -166,31 +202,31 @@ interface ImageRendererProps {
   playlist?: SpotifyPlaylist;
 }
 
-const createSpotifyPlaylist = async (data: SpotifyData): Promise<SpotifyPlaylist | null> => {
-  try {
-    const spotifyApi = new SpotifyApiService({
-      clientId: config.spotify.clientId,
-      clientSecret: config.spotify.clientSecret
-    });
+// const createSpotifyPlaylist = async (data: SpotifyData): Promise<SpotifyPlaylist | null> => {
+//   try {
+//     const spotifyApi = new SpotifyApiService({
+//       clientId: config.spotify.clientId,
+//       clientSecret: config.spotify.clientSecret
+//     });
 
-    const playlistGenerator = new PlaylistGenerator(spotifyApi);
+//     const playlistGenerator = new PlaylistGenerator(spotifyApi);
     
-    const playlistId = await playlistGenerator.generatePlaylist({
-      songs: data?.["Top Songs"] ?? [],
-      artists: data?.["Top Artists"] ?? []
-    });
+//     const playlistId = await playlistGenerator.generatePlaylist({
+//       songs: data?.["Top Songs"] ?? [],
+//       artists: data?.["Top Artists"] ?? []
+//     });
 
-    if (!playlistId) return null;
+//     if (!playlistId) return null;
 
-    return {
-      id: playlistId,
-      url: `https://open.spotify.com/playlist/${playlistId}`
-    };
-  } catch (error) {
-    console.error('Error creating playlist:', error);
-    return null;
-  }
-};
+//     return {
+//       id: playlistId,
+//       url: `https://open.spotify.com/playlist/${playlistId}`
+//     };
+//   } catch (error) {
+//     console.error('Error creating playlist:', error);
+//     return null;
+//   }
+// };
 
 const ImageRenderer = ({
   imageContent,
@@ -354,9 +390,9 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
           const parsedText = parseSpotifyText(result.data.text);
           
           let playlist: SpotifyPlaylist | null = null;
-          if (typeof parsedText !== 'string') {
-            playlist = await createSpotifyPlaylist(parsedText);
-          }
+          // if (typeof parsedText !== 'string') {
+          //   playlist = await createSpotifyPlaylist(parsedText);
+          // }
 
           setFiles(prev => prev.map((f, i) => 
             i === index ? { 
