@@ -33,49 +33,78 @@ type TesseractResult = {
   };
 };
 
-function parseSpotifyText(text: string): SpotifyData | string {
-  const cleanText = text.replace(/\s+/g, " ").trim();
+function parseSpotifyText(
+  leftText: string,
+  rightText: string,
+): SpotifyData | string {
+  const cleanText = (text: string) => text.replace(/\s+/g, " ").trim();
+  const cleanLeftText = cleanText(leftText);
+  const cleanRightText = cleanText(rightText);
 
-  if (!cleanText.includes("Top Artists Top Songs")) {
-    return cleanText;
+  if (
+    !cleanLeftText.includes("Top Artists") ||
+    !cleanRightText.includes("Top Songs")
+  ) {
+    return cleanLeftText + "\n\n" + cleanRightText;
   }
 
   try {
-    // Add newlines at key positions to normalize the text structure
-    const normalizedText = cleanText
-      .replace(/(\s*Top Artists Top Songs)/, "\n$1\n")
-      .replace(/(\s*Minutes Listened)/, "\n$1")
-      .replace(/(\s*1\s+[^\d]+\s+1\s+)/, "\n$1")
-      .replace(/(\s*2\s+[^\d]+\s+2\s+)/, "\n$1")
-      .replace(/(\s*3\s+[^\d]+\s+3\s+)/, "\n$1")
-      .replace(/(\s*4\s+[^\d]+\s+4\s+)/, "\n$1")
-      .replace(/(\s*5\s+[^\d]+\s+5\s+)/, "\n$1");
+    const normalizeText = (text: string, header: string) => {
+      return text
+        .replace(new RegExp(`(\\s*${header})`), "\n$1\n")
+        .replace(/(\s*1\s{1,})/, "\n$1")
+        .replace(/(\s*2\s{1,})/, "\n$1")
+        .replace(/(\s*3\s{1,})/, "\n$1")
+        .replace(/(\s*4\s{1,})/, "\n$1")
+        .replace(/(\s*5\s{1,})/, "\n$1")
+        .replace(/(\s*6\s{1,})/, "\n$1");
+    };
 
-    const lines = normalizedText
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean);
+    const processLines = (text: string) => {
+      return text
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
+    };
+
+    const normalizedLeftText = normalizeText(cleanLeftText, "Top Artists");
+    const normalizedRightText = normalizeText(cleanRightText, "Top Songs");
+
+    console.log("cleanLeftText", cleanLeftText);
+    console.log("normalizedLeftText", normalizedLeftText);
+
+    console.log("cleanRightText", cleanRightText);
+    console.log("normalizedRightText", normalizedRightText);
+
+    const leftLines = processLines(normalizedLeftText);
+    const rightLines = processLines(normalizedRightText);
+
     const artists: string[] = [];
     const songs: string[] = [];
 
-    const startIndex = lines.findIndex((line) =>
-      line.includes("Top Artists Top Songs"),
-    );
-    if (startIndex === -1) return cleanText;
+    const findStartIndex = (lines: string[], header: string) => {
+      return lines.findIndex((line) => line.includes(header));
+    };
+
+    const artistStartIndex = findStartIndex(leftLines, "Top Artists");
+    const songStartIndex = findStartIndex(rightLines, "Top Songs");
+
+    if (artistStartIndex === -1 || songStartIndex === -1) {
+      return cleanLeftText + " " + cleanRightText;
+    }
+
+    const extractItem = (line: string) => line?.replace(/^\d+\s*/, "").trim();
 
     for (let i = 1; i <= 5; i++) {
-      const line = lines[startIndex + i];
-      if (!line) continue;
+      const artistLine = leftLines[artistStartIndex + i];
+      const songLine = rightLines[songStartIndex + i];
 
-      const parts = line.split(new RegExp(`${i}\\s+`)).filter(Boolean);
-      if (parts?.[0] && parts?.[1]) {
-        const artist = parts[0].replace(/^\d+\s*/, "").trim();
-        const song = parts[1]
-          .replace(/^\d+\s*/, "")
-          .trim();
+      if (artistLine) {
+        artists.push(extractItem(artistLine));
+      }
 
-        artists.push(artist);
-        songs.push(song);
+      if (songLine) {
+        songs.push(extractItem(songLine));
       }
     }
 
@@ -86,10 +115,10 @@ function parseSpotifyText(text: string): SpotifyData | string {
       } as SpotifyData;
     }
 
-    return cleanText;
+    return cleanLeftText + " " + cleanRightText;
   } catch (error) {
     console.error("Error parsing Spotify text:", error);
-    return text;
+    return leftText + " " + rightText;
   }
 }
 
@@ -299,14 +328,16 @@ function WrappedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
   const [isAllOCRComplete, setIsAllOCRComplete] = useState(false);
   const [playlistId, setPlaylistId] = useState<string>("");
   const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState("Creating your playlist...");
-  
+  const [loadingMessage, setLoadingMessage] = useState(
+    "Creating your playlist...",
+  );
+
   const loadingMessages = [
     "Creating your playlist...",
     "Finding your songs...",
     "Merging your tastes...",
     "Curating the perfect mix...",
-    "Almost there..."
+    "Almost there...",
   ];
 
   useEffect(() => {
@@ -328,26 +359,46 @@ function WrappedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
       );
 
       try {
-        const result = (await Tesseract.recognize(
-          file.imageContent,
-          "eng",
-        )) as TesseractResult;
+        const { createWorker } = Tesseract;
+        const worker = await createWorker("eng");
 
-        if (result?.data?.text) {
-          const parsedText = parseSpotifyText(result.data.text);
+        // Get image dimensions
+        const img = new Image();
+        img.src = file.imageContent;
+        await new Promise((resolve) => (img.onload = resolve));
 
-          setFiles((prev) =>
-            prev.map((f, i) =>
-              i === index
-                ? {
-                    ...f,
-                    extractedText: parsedText,
-                    isProcessingOCR: false,
-                  }
-                : f,
-            ),
-          );
-        }
+        const width = img.width;
+        const height = img.height;
+        const halfWidth = Math.floor(width / 2);
+
+        // Process left half of top 75%
+        const leftResult = (await worker.recognize(file.imageContent, {
+          rectangle: { top: 0, left: 0, width: halfWidth, height: Math.floor(height * 0.75) },
+        })) as TesseractResult;
+
+        // Process right half of top 75%
+        const rightResult = (await worker.recognize(file.imageContent, {
+          rectangle: { top: 0, left: halfWidth, width: halfWidth, height: Math.floor(height * 0.75) },
+        })) as TesseractResult;
+
+        await worker.terminate();
+
+        const parsedText = parseSpotifyText(
+          leftResult.data.text,
+          rightResult.data.text,
+        );
+
+        setFiles((prev) =>
+          prev.map((f, i) =>
+            i === index
+              ? {
+                  ...f,
+                  extractedText: parsedText,
+                  isProcessingOCR: false,
+                }
+              : f,
+          ),
+        );
       } catch (error) {
         console.error("OCR failed:", error);
         setFiles((prev) =>
@@ -413,7 +464,7 @@ function WrappedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
       console.error("Failed to create playlist:", error);
     } finally {
       setIsCreatingPlaylist(false);
-      setLoadingMessage(loadingMessages[0] ?? '');
+      setLoadingMessage(loadingMessages[0] ?? "");
     }
   };
 
@@ -448,7 +499,7 @@ function WrappedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
         </div>
       ) : (
         playlistId && (
-          <div className="max-w-[500px] mx-auto space-y-4">
+          <div className="mx-auto max-w-[500px] space-y-4">
             <iframe
               style={{ borderRadius: "12px" }}
               src={`https://open.spotify.com/embed/playlist/${playlistId}?utm_source=generator&theme=0`}
