@@ -236,13 +236,13 @@ export async function POST(request: Request) {
     const playlistId = playlist.data.id;
     const addedTrackUris = new Set<string>();
 
-    // Process songs
-    for (const userData of body.data) {
+    // Process songs and artists in parallel
+    const songPromises = body.data.map(async (userData) => {
       const userTopArtists = new Set(userData["Top Artists"].map(artist => artist.toLowerCase()));
-
-      for (const song of userData["Top Songs"]) {
+      
+      return Promise.all(userData["Top Songs"].map(async (song) => {
         const searchResults = await searchTrack(song);
-        if (searchResults.length === 0) continue;
+        if (searchResults.length === 0) return null;
 
         // Filter results using fuzzy matching and calculate distances
         const relevantResults = searchResults.map((track) => {
@@ -251,9 +251,8 @@ export async function POST(request: Request) {
           const distance = song.endsWith("...")
             ? calculateLevenshteinDistance(trackName.slice(0, searchTerm.length), searchTerm)
             : calculateLevenshteinDistance(trackName, searchTerm);
-          const maxDistance = Math.floor(searchTerm.length * 0.1);
-          return { track, distance, isRelevant: distance <= maxDistance };
-        }).filter(result => result.isRelevant);
+          return { track, distance };
+        });
 
         // Try to find a track from user's top artists
         const trackFromTopArtist = relevantResults.find(
@@ -267,29 +266,38 @@ export async function POST(request: Request) {
           ? relevantResults.reduce((min, curr) => curr.distance < min.distance ? curr : min).track
           : searchResults[0];
 
-        const trackToAdd = trackFromTopArtist ?? bestMatch;
+        return trackFromTopArtist ?? bestMatch;
+      }));
+    });
 
-        if (!addedTrackUris.has(trackToAdd.uri)) {
-          await addTracksToPlaylist(playlistId, [trackToAdd.uri]);
-          addedTrackUris.add(trackToAdd.uri);
-        }
+    const artistPromises = body.data.map(async (userData) => {
+      return Promise.all(userData["Top Artists"].map(async (artist) => {
+        const artistTracks = await searchTrack(artist, true);
+        return artistTracks.slice(0, 3); // Get top 3 tracks per artist
+      }));
+    });
+
+    // Wait for all searches to complete
+    const songResults = await Promise.all(songPromises);
+    const artistResults = await Promise.all(artistPromises);
+
+    // Flatten results and filter out nulls
+    const allSongTracks = songResults.flat().filter((track): track is { uri: string } => track !== null);
+    const allArtistTracks = artistResults.flat(2) as { uri: string }[];
+    
+    // Add songs first
+    for (const track of allSongTracks) {
+      if (!addedTrackUris.has(track.uri)) {
+        await addTracksToPlaylist(playlistId, [track.uri]);
+        addedTrackUris.add(track.uri);
       }
     }
 
-    // Process artists
-    for (const userData of body.data) {
-      for (const artist of userData["Top Artists"]) {
-        const artistTracks = await searchTrack(artist, true);
-        let addedCount = 0;
-
-        for (let i = 0; i < artistTracks.length && addedCount < 3; i++) {
-          const track = artistTracks[i] as { uri: string };
-          if (!addedTrackUris.has(track.uri)) {
-            await addTracksToPlaylist(playlistId, [track.uri]);
-            addedTrackUris.add(track.uri);
-            addedCount++;
-          }
-        }
+    // Then add artist tracks
+    for (const track of allArtistTracks) {
+      if (!addedTrackUris.has(track.uri)) {
+        await addTracksToPlaylist(playlistId, [track.uri]);
+        addedTrackUris.add(track.uri);
       }
     }
 

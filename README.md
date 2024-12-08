@@ -11,6 +11,7 @@ This project is currently a work in progress. There are many improvements that s
 - Additional playlist customization options
 - Performance optimizations
 - Comprehensive testing
+- Clearing out old playlists
 
 
 ## Credits
