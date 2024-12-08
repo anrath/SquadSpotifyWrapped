@@ -299,6 +299,7 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
     "transparent",
   );
   const [isAllOCRComplete, setIsAllOCRComplete] = useState(false);
+  const [playlistId, setPlaylistId] = useState<string>("");
 
   useEffect(() => {
     setFiles(
@@ -349,15 +350,19 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
       }
     };
 
+    const updateOCRStatus = () => {
+      const allComplete = files.every(
+        (file) => file.extractedText !== undefined && !file.isProcessingOCR
+      );
+      setIsAllOCRComplete(allComplete);
+    };
+
     files.forEach((file, index) => {
       void processOCR(file, index);
     });
 
-    const allComplete = files.every(
-      (file) => file.extractedText !== undefined && !file.isProcessingOCR
-    );
-    setIsAllOCRComplete(allComplete);
-  }, [files.length]);
+    updateOCRStatus();
+  }, [files]);
 
   useEffect(() => {
     const createPlaylist = async () => {
@@ -366,7 +371,7 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
       const spotifyData = files
         .map((file) => file.extractedText)
         .filter((text): text is SpotifyData => 
-          typeof text === "object" && text !== null
+          text !== undefined && typeof text === "object" && text !== null
         );
 
       if (spotifyData.length > 0) {
@@ -378,8 +383,8 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
             },
             body: JSON.stringify({ data: spotifyData }),
           });
-          const result = await response.json();
-          console.log("Playlist creation result:", result);
+          const result = await response.json() as { playlistId: string };
+          setPlaylistId(result.playlistId);
         } catch (error) {
           console.error("Failed to create playlist:", error);
         }
@@ -413,6 +418,19 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
 
   return (
     <div className="mx-auto flex max-w-[min(100vw,42rem)] flex-col items-center justify-center gap-6 p-6">
+      {playlistId && (
+        <div className="w-full">
+          <iframe
+            style={{ borderRadius: "12px" }}
+            src={`https://open.spotify.com/embed/playlist/${playlistId}?utm_source=generator&theme=0`}
+            width="100%"
+            height="352"
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+            loading="lazy"
+          ></iframe>
+        </div>
+      )}
+      
       {files.map((file, index) => (
         <div key={file.imageMetadata.name + index} className="relative w-full">
           <div className="flex w-full flex-col items-center gap-4 rounded-xl p-6">
