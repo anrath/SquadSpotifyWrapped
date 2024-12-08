@@ -142,7 +142,6 @@ const searchTrack = async (query: string, isArtist = false) => {
 };
 
 export async function POST(request: Request) {
-  console.log("\n\n\nPOST request received\n\n\n");
   try {
     const body: PlaylistCreationData = await request.json();
 
@@ -163,6 +162,23 @@ export async function POST(request: Request) {
       for (const song of userData["Top Songs"]) {
         const searchResults = await searchTrack(song);
         if (searchResults.length > 0) {
+          // For songs without "...", try to find exact match first
+          if (!song.endsWith("...")) {
+            const exactMatch = searchResults.find(
+              (track: { name: string }) => track.name.toLowerCase() === song.toLowerCase()
+            );
+            
+            if (exactMatch && 'uri' in exactMatch) {
+              const uri = exactMatch.uri as string;
+              if (!addedTrackUris.has(uri)) {
+                await addTracksToPlaylist(playlistId, [uri]);
+                addedTrackUris.add(uri);
+              }
+              continue;
+            }
+          }
+
+          // Use first result if no exact match or song is truncated
           const track = searchResults[0] as { uri: string };
           if (!addedTrackUris.has(track.uri)) {
             await addTracksToPlaylist(playlistId, [track.uri]);

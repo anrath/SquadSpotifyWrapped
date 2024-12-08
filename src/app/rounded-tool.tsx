@@ -72,7 +72,6 @@ function parseSpotifyText(text: string): SpotifyData | string {
         const artist = parts[0].replace(/^\d+\s*/, "").trim();
         const song = parts[1]
           .replace(/^\d+\s*/, "")
-          .replace(/\.\.\.$/, "")
           .trim();
 
         artists.push(artist);
@@ -365,6 +364,7 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
   }, [files]);
 
   const handleCreatePlaylist = async () => {
+    setPlaylistId("");
     setIsCreatingPlaylist(true);
 
     const spotifyData = files
@@ -446,7 +446,10 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
       <div className="flex flex-col items-center gap-4">
         <div className="flex gap-3">
           <button
-            onClick={cancel}
+            onClick={() => {
+              cancel();
+              setPlaylistId("");
+            }}
             className="rounded-lg bg-red-700 px-4 py-2 text-sm font-medium text-white/90 transition-colors hover:bg-red-800"
           >
             Cancel
