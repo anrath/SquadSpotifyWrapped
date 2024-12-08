@@ -3,14 +3,15 @@ import { usePlausible } from "next-plausible";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { UploadBox } from "@/components/shared/upload-box";
-import { OptionSelector } from "@/components/shared/option-selector";
-import { BorderRadiusSelector } from "@/components/border-radius-selector";
+// import { OptionSelector } from "@/components/shared/option-selector";
+// import { BorderRadiusSelector } from "@/components/border-radius-selector";
 import {
   useFileUploader,
   type FileUploaderResult,
 } from "@/hooks/use-file-uploader";
 import { FileDropzone } from "@/components/shared/file-dropzone";
 import Tesseract from "tesseract.js";
+import { Loader2 } from "lucide-react";
 
 type Radius = number;
 
@@ -298,6 +299,7 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
   );
   const [isAllOCRComplete, setIsAllOCRComplete] = useState(false);
   const [playlistId, setPlaylistId] = useState<string>("");
+  const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
 
   useEffect(() => {
     setFiles(
@@ -362,40 +364,36 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
     updateOCRStatus();
   }, [files]);
 
-  useEffect(() => {
-    const createPlaylist = async () => {
-      if (!isAllOCRComplete) return;
+  const handleCreatePlaylist = async () => {
+    setIsCreatingPlaylist(true);
 
-      const spotifyData = files
-        .map((file) => file.extractedText)
-        .filter(
-          (text): text is SpotifyData =>
-            text !== undefined && typeof text === "object" && text !== null,
-        );
+    const spotifyData = files
+      .map((file) => file.extractedText)
+      .filter(
+        (text): text is SpotifyData =>
+          text !== undefined && typeof text === "object" && text !== null,
+      );
 
+    try {
       if (debug) {
         setPlaylistId("1GAY52k57voj0tyjYVGWaP");
       } else {
-        if (spotifyData.length > 0) {
-          try {
-            const response = await fetch("/api/spotify", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({ data: spotifyData }),
-            });
-            const result = (await response.json()) as { playlistId: string };
-            setPlaylistId(result.playlistId);
-          } catch (error) {
-            console.error("Failed to create playlist:", error);
-          }
-        }
+        const response = await fetch("/api/spotify", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ data: spotifyData }),
+        });
+        const result = (await response.json()) as { playlistId: string };
+        setPlaylistId(result.playlistId);
       }
-    };
-
-    void createPlaylist();
-  }, [isAllOCRComplete, files]);
+    } catch (error) {
+      console.error("Failed to create playlist:", error);
+    } finally {
+      setIsCreatingPlaylist(false);
+    }
+  };
 
   // const handleRadiusChange = (value: number | "custom") => {
   //   if (value === "custom") {
@@ -421,46 +419,68 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
 
   return (
     <div className="mx-auto flex max-w-[95vw] flex-col items-center justify-center gap-6 p-6">
-      {playlistId && (
-        <div className="w-full space-y-4">
-          <iframe
-            style={{ borderRadius: "12px" }}
-            src={`https://open.spotify.com/embed/playlist/${playlistId}?utm_source=generator&theme=0`}
-            width="100%"
-            height="352"
-            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-            loading="lazy"
-          ></iframe>
-          <p className="text-center text-sm text-red-500">
-            This playlist may be deleted in the future. Please make a copy for
-            yourself if you&apos;d like to keep it.
-          </p>
+      {isCreatingPlaylist ? (
+        <div className="flex flex-col items-center gap-2 text-white/80">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <p>Creating your playlist... This may take up to 15 seconds.</p>
         </div>
+      ) : (
+        playlistId && (
+          <div className="w-full space-y-4">
+            <iframe
+              style={{ borderRadius: "12px" }}
+              src={`https://open.spotify.com/embed/playlist/${playlistId}?utm_source=generator&theme=0`}
+              width="100%"
+              height="352"
+              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+              loading="lazy"
+            ></iframe>
+            <p className="text-center text-sm text-red-500">
+              This playlist may be deleted in the future. Please make a copy for
+              yourself if you&apos;d like to keep it.
+            </p>
+          </div>
+        )
       )}
 
-      <div className="flex gap-3">
-        <button
-          onClick={cancel}
-          className="rounded-lg bg-red-700 px-4 py-2 text-sm font-medium text-white/90 transition-colors hover:bg-red-800"
-        >
-          Cancel
-        </button>
-        {/* {files.map((file, index) => (
-          <SaveAsPngButton
-            key={file.imageMetadata.name + index}
-            imageContent={file.imageContent}
-            radius={radius}
-            background={background}
-            imageMetadata={file.imageMetadata}
-          />
-        ))} */}
+      <div className="flex flex-col items-center gap-4">
+        <div className="flex gap-3">
+          <button
+            onClick={cancel}
+            className="rounded-lg bg-red-700 px-4 py-2 text-sm font-medium text-white/90 transition-colors hover:bg-red-800"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleCreatePlaylist}
+            disabled={
+              files.length < 2 || !isAllOCRComplete || isCreatingPlaylist
+            }
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white/90 transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Generate Playlist
+          </button>
+        </div>
+
+        {files.length < 2 && (
+          <p className="text-sm text-yellow-400">
+            Please upload at least 2 images to generate a playlist
+          </p>
+        )}
+
+        {files.length >= 2 && !isAllOCRComplete && (
+          <div className="flex items-center gap-2 text-white/80">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <p className="text-sm">Processing images...</p>
+          </div>
+        )}
       </div>
 
       <div className="grid w-full place-items-center gap-4">
         <div
           className={`grid gap-4 ${
             files.length === 1
-              ? "w-full sm:w-1/2 md:w-1/3 lg:w-1/4 min-w-[20rem]"
+              ? "w-full min-w-[20rem] sm:w-1/2 md:w-1/3 lg:w-1/4"
               : files.length === 2
                 ? "w-full grid-cols-1 sm:grid-cols-2 md:w-2/3 lg:w-1/2"
                 : files.length === 3
@@ -502,7 +522,7 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
 }
 
 export function RoundedTool() {
-  const fileUploaderProps = useFileUploader(true);
+  const fileUploaderProps = useFileUploader(false);
 
   return (
     <FileDropzone
