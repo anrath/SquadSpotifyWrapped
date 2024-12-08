@@ -298,6 +298,7 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
     "roundedTool_background",
     "transparent",
   );
+  const [isAllOCRComplete, setIsAllOCRComplete] = useState(false);
 
   useEffect(() => {
     setFiles(
@@ -351,7 +352,42 @@ function RoundedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
     files.forEach((file, index) => {
       void processOCR(file, index);
     });
+
+    const allComplete = files.every(
+      (file) => file.extractedText !== undefined && !file.isProcessingOCR
+    );
+    setIsAllOCRComplete(allComplete);
   }, [files.length]);
+
+  useEffect(() => {
+    const createPlaylist = async () => {
+      if (!isAllOCRComplete) return;
+
+      const spotifyData = files
+        .map((file) => file.extractedText)
+        .filter((text): text is SpotifyData => 
+          typeof text === "object" && text !== null
+        );
+
+      if (spotifyData.length > 0) {
+        try {
+          const response = await fetch("/api/spotify", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ data: spotifyData }),
+          });
+          const result = await response.json();
+          console.log("Playlist creation result:", result);
+        } catch (error) {
+          console.error("Failed to create playlist:", error);
+        }
+      }
+    };
+
+    void createPlaylist();
+  }, [isAllOCRComplete, files]);
 
   const handleRadiusChange = (value: number | "custom") => {
     if (value === "custom") {
