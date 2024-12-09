@@ -33,6 +33,17 @@ type TesseractResult = {
   };
 };
 
+const normalizeText = (text: string, header: string) => {
+  return text
+    .replace(new RegExp(`.*?(\\s*${header})`), "$1\n")
+    .replace(/(\s{1,}1\s{1,})/, "\n$1")
+    .replace(/(\s{1,}2\s{1,})/, "\n$1")
+    .replace(/(\s{1,}3\s{1,})/, "\n$1")
+    .replace(/(\s{1,}4\s{1,})/, "\n$1")
+    .replace(/(\s{1,}5\s{1,})/, "\n$1")
+    .replace(/(\s{1,}6\s{1,})/, "\n$1");
+};
+
 function parseSpotifyText(
   leftText: string,
   rightText: string,
@@ -49,16 +60,6 @@ function parseSpotifyText(
   }
 
   try {
-    const normalizeText = (text: string, header: string) => {
-      return text
-        .replace(new RegExp(`(\\s*${header})`), "\n$1\n")
-        .replace(/(\s*1\s{1,})/, "\n$1")
-        .replace(/(\s*2\s{1,})/, "\n$1")
-        .replace(/(\s*3\s{1,})/, "\n$1")
-        .replace(/(\s*4\s{1,})/, "\n$1")
-        .replace(/(\s*5\s{1,})/, "\n$1")
-        .replace(/(\s*6\s{1,})/, "\n$1");
-    };
 
     const processLines = (text: string) => {
       return text
@@ -599,15 +600,65 @@ function WrappedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
 
 export function WrappedTool() {
   const fileUploaderProps = useFileUploader(false);
+  const [testInput, setTestInput] = useState('');
+  const [testHeader, setTestHeader] = useState('');
+  const [testResult, setTestResult] = useState('');
+
+  const handleTest = () => {
+    const result = normalizeText(testInput, testHeader);
+    setTestResult(result);
+  };
 
   return (
-    <FileDropzone
-      setCurrentFiles={fileUploaderProps.handleFileUpload}
-      acceptedFileTypes={["image/*", ".jpg", ".jpeg", ".png", ".webp", ".svg"]}
-      dropText="Drop image files"
-      maxFiles={10}
-    >
-      <WrappedToolCore fileUploaderProps={fileUploaderProps} />
-    </FileDropzone>
+    <div>
+      <FileDropzone
+        setCurrentFiles={fileUploaderProps.handleFileUpload}
+        acceptedFileTypes={["image/*", ".jpg", ".jpeg", ".png", ".webp", ".svg"]}
+        dropText="Drop image files"
+        maxFiles={10}
+      >
+        <WrappedToolCore fileUploaderProps={fileUploaderProps} />
+      </FileDropzone>
+      
+      <div className="mt-8 p-4 border rounded-lg">
+        <h3 className="text-lg font-semibold mb-4">Regex Tester</h3>
+        <div className="space-y-4">
+          <div>
+            <label className="block mb-2">Header Text:</label>
+            <input
+              type="text"
+              value={testHeader}
+              onChange={(e) => setTestHeader(e.target.value)}
+              className="w-full p-2 border rounded bg-black"
+              placeholder="Enter header text"
+            />
+          </div>
+          <div>
+            <label className="block mb-2">Test Input:</label>
+            <textarea
+              value={testInput}
+              onChange={(e) => setTestInput(e.target.value)}
+              className="w-full p-2 border rounded h-32"
+              placeholder="Enter text to test"
+              style={{ backgroundColor: "black" }}
+            />
+          </div>
+          <button
+            onClick={handleTest}
+            className="bg-blue-500 px-4 py-2 rounded hover:bg-blue-600"
+          >
+            Test Regex
+          </button>
+          {testResult && (
+            <div>
+              <label className="block mb-2">Result:</label>
+              <pre className="w-full p-2 border rounded whitespace-pre-wrap">
+                {testResult}
+              </pre>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

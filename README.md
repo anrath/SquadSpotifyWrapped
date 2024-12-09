@@ -17,3 +17,5 @@ This project is currently a work in progress. There are many improvements that s
 ## Credits
 
 [Theo Browne](https://github.com/t3dotgg) and collaborators for the open-source [QuickPic](https://quickpic.t3.gg) project which was the foundation for this codebase.
+
+[tesseract.js](https://github.com/naptha/tesseract.js/blob/master/docs/api.md#worker-recognize) for the OCR library.
