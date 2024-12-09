@@ -255,7 +255,7 @@ export async function POST(request: Request) {
     }
 
     return new NextResponse(
-      JSON.stringify({ error: "Failed to create playlist. Spotify may be rate limiting requests. Please try again later." }),
+      JSON.stringify({ error: "Error creating playlist. Spotify may be rate limiting requests. Please try again later." }),
       { status: 500 }
     );
   }
