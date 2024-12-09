@@ -71,11 +71,11 @@ function parseSpotifyText(
     const normalizedLeftText = normalizeText(cleanLeftText, "Top Artists");
     const normalizedRightText = normalizeText(cleanRightText, "Top Songs");
 
-    console.log("cleanLeftText", cleanLeftText);
-    console.log("normalizedLeftText", normalizedLeftText);
+    // console.log("cleanLeftText", cleanLeftText);
+    // console.log("normalizedLeftText", normalizedLeftText);
 
-    console.log("cleanRightText", cleanRightText);
-    console.log("normalizedRightText", normalizedRightText);
+    // console.log("cleanRightText", cleanRightText);
+    // console.log("normalizedRightText", normalizedRightText);
 
     const leftLines = processLines(normalizedLeftText);
     const rightLines = processLines(normalizedRightText);
@@ -598,8 +598,8 @@ function WrappedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
   );
 }
 
-export function WrappedTool() {
-  const fileUploaderProps = useFileUploader(false);
+export function WrappedTool( {debug = false} ) {
+  const fileUploaderProps = useFileUploader(debug);
   const [testInput, setTestInput] = useState('');
   const [testHeader, setTestHeader] = useState('');
   const [testResult, setTestResult] = useState('');
@@ -620,7 +620,7 @@ export function WrappedTool() {
         <WrappedToolCore fileUploaderProps={fileUploaderProps} />
       </FileDropzone>
       
-      <div className="mt-8 p-4 border rounded-lg">
+      {debug && <div className="mt-8 p-4 border rounded-lg">
         <h3 className="text-lg font-semibold mb-4">Regex Tester</h3>
         <div className="space-y-4">
           <div>
@@ -658,7 +658,7 @@ export function WrappedTool() {
             </div>
           )}
         </div>
-      </div>
+      </div>}
     </div>
   );
 }
