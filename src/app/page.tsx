@@ -27,6 +27,7 @@ export default function Home() {
         
         <div className="mt-4">
           <WrappedTool />
+          {/* <WrappedTool debug={true} /> */}
         </div>
       </main>
       <footer className="mt-8 text-center text-sm text-gray-500">
