@@ -1,4 +1,4 @@
-import axios from "axios";
+import ky from "ky";
 import { NextResponse } from "next/server";
 import querystring from "querystring";
 
@@ -23,42 +23,36 @@ type PlaylistCreationData = {
 };
 
 const getAccessToken = async () => {
-  const res = await axios.post<{ access_token: string }>(
-    TOKEN_ENDPOINT,
-    querystring.stringify({
+  const res = await ky.post(TOKEN_ENDPOINT, {
+    headers: {
+      Authorization: `Basic ${token}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: querystring.stringify({
       grant_type: "refresh_token",
       refresh_token,
     }),
-    {
-      headers: {
-        Authorization: `Basic ${token}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-    },
-  );
+  }).json<{ access_token: string }>();
 
-  return res.data.access_token;
+  return res.access_token;
 };
 
 const createPlaylist = async (name: string) => {
   const access_token = await getAccessToken();
 
-  const playlist = await axios.post(
-    CREATE_PLAYLIST_ENDPOINT,
-    {
+  const playlist = await ky.post(CREATE_PLAYLIST_ENDPOINT, {
+    headers: {
+      Authorization: `Bearer ${access_token}`,
+      "Content-Type": "application/json",
+    },
+    json: {
       name,
       description:
         "Generated with Squad Spotify Wrapped: spotify.kasralekan.com",
       public: true,
       collaborative: false,
     },
-    {
-      headers: {
-        Authorization: `Bearer ${access_token}`,
-        "Content-Type": "application/json",
-      },
-    },
-  );
+  }).json();
 
   return playlist;
 };
@@ -66,18 +60,15 @@ const createPlaylist = async (name: string) => {
 const addTracksToPlaylist = async (playlistId: string, trackUris: string[]) => {
   const access_token = await getAccessToken();
 
-  return axios.post(
-    `https://api.spotify.com/v1/playlists/${playlistId}/tracks`,
-    {
+  return ky.post(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
+    headers: {
+      Authorization: `Bearer ${access_token}`,
+      "Content-Type": "application/json",
+    },
+    json: {
       uris: trackUris,
     },
-    {
-      headers: {
-        Authorization: `Bearer ${access_token}`,
-        "Content-Type": "application/json",
-      },
-    },
-  );
+  }).json();
 };
 
 const searchTrack = async (query: string, isArtist = false): Promise<Array<{
@@ -174,29 +165,29 @@ const searchTrack = async (query: string, isArtist = false): Promise<Array<{
     limit: 20,
   };
 
-  const response = await axios.get<SpotifySearchResponse>(SEARCH_ENDPOINT, {
-    params: searchParams,
+  const response = await ky.get(SEARCH_ENDPOINT, {
+    searchParams,
     headers: {
       Authorization: `Bearer ${access_token}`,
       "Content-Type": "application/json",
     },
-  });
+  }).json<SpotifySearchResponse>();
 
-  if (isArtist && response.data.artists?.items?.length > 0) {
-    const artistId = response.data.artists?.items[0]?.id;
-    const topTracksResponse = await axios.get<{ tracks: Array<unknown> }>(
+  if (isArtist && response.artists?.items?.length > 0) {
+    const artistId = response.artists?.items[0]?.id;
+    const topTracksResponse = await ky.get(
       `https://api.spotify.com/v1/artists/${artistId}/top-tracks?market=US`,
       {
         headers: {
           Authorization: `Bearer ${access_token}`,
           "Content-Type": "application/json",
         },
-      },
-    );
-    return topTracksResponse.data.tracks.slice(0, 5);
+      }
+    ).json<{ tracks: Array<unknown> }>();
+    return topTracksResponse.tracks.slice(0, 5);
   }
 
-  return response.data.tracks?.items ?? [];
+  return response.tracks?.items ?? [];
 };
 
 const calculateLevenshteinDistance = (str1: string, str2: string): number => {
@@ -233,7 +224,7 @@ export async function POST(request: Request) {
 
     // Create new playlist
     const playlist = await createPlaylist("Squad Spotify Wrapped Playlist");
-    const playlistId = playlist.data.id;
+    const playlistId = playlist.id;
     const addedTrackUris = new Set<string>();
 
     // Process songs and artists in parallel
