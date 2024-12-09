@@ -12,6 +12,7 @@ This project is currently a work in progress. There are many improvements that s
 - Performance optimizations
 - Comprehensive testing
 - Clearing out old playlists
+- Figure out how to get spotify rate limiting stop erroring searches (ETIMEDOUT)
 
 
 ## Credits

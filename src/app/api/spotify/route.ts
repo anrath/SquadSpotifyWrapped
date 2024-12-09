@@ -71,29 +71,24 @@ const addTracksToPlaylist = async (playlistId: string, trackUris: string[]) => {
   }).json();
 };
 
-const searchTrack = async (query: string, isArtist = false): Promise<Array<{
+type SpotifyArtist = {
+  external_urls: { spotify: string };
+  href: string;
+  id: string;
+  name: string;
+  type: string;
+  uri: string;
+};
+
+type SpotifyTrack = {
   album?: {
     album_type: string;
-    artists: Array<{
-      external_urls: { spotify: string };
-      href: string;
-      id: string;
-      name: string;
-      type: string;
-      uri: string;
-    }>;
+    artists: SpotifyArtist[];
     id: string;
     name: string;
     uri: string;
   };
-  artists: Array<{
-    external_urls: { spotify: string };
-    href: string;
-    id: string;
-    name: string;
-    type: string;
-    uri: string;
-  }>;
+  artists: SpotifyArtist[];
   available_markets?: string[];
   disc_number?: number;
   duration_ms?: number;
@@ -105,7 +100,9 @@ const searchTrack = async (query: string, isArtist = false): Promise<Array<{
   preview_url?: string | null;
   track_number?: number;
   type: string;
-}>> => {
+};
+
+const searchTrack = async (query: string, isArtist = false): Promise<SpotifyTrack[]> => {
   const access_token = await getAccessToken();
 
   type SpotifySearchResponse = {
@@ -121,41 +118,7 @@ const searchTrack = async (query: string, isArtist = false): Promise<Array<{
       offset: number;
       previous: string | null;
       total: number;
-      items: Array<{
-        album: {
-          album_type: string;
-          artists: Array<{
-            external_urls: { spotify: string };
-            href: string;
-            id: string;
-            name: string;
-            type: string;
-            uri: string;
-          }>;
-          id: string;
-          name: string;
-          uri: string;
-        };
-        artists: Array<{
-          external_urls: { spotify: string };
-          href: string;
-          id: string;
-          name: string;
-          type: string;
-          uri: string;
-        }>;
-        available_markets: string[];
-        disc_number: number;
-        duration_ms: number;
-        explicit: boolean;
-        id: string;
-        name: string;
-        uri: string;
-        popularity: number;
-        preview_url: string | null;
-        track_number: number;
-        type: string;
-      }>;
+      items: SpotifyTrack[];
     };
   };
 
@@ -183,7 +146,7 @@ const searchTrack = async (query: string, isArtist = false): Promise<Array<{
           "Content-Type": "application/json",
         },
       }
-    ).json<{ tracks: Array<unknown> }>();
+    ).json<{ tracks: SpotifyTrack[] }>();
     return topTracksResponse.tracks.slice(0, 5);
   }
 
@@ -222,82 +185,78 @@ export async function POST(request: Request) {
       );
     }
 
-    // Create new playlist
-    const playlist = await createPlaylist("Squad Spotify Wrapped Playlist");
+    // Create playlist and process songs/artists in parallel
+    const [playlist, songResults, artistResults] = await Promise.all([
+      createPlaylist("Squad Spotify Wrapped Playlist"),
+      Promise.all(body.data.map(async (userData) => {
+        const userTopArtists = new Set(userData["Top Artists"].map(artist => artist.toLowerCase()));
+        return Promise.all(userData["Top Songs"].map(async (song) => {
+          const searchResults = await searchTrack(song);
+          if (searchResults.length === 0) return null;
+
+          const relevantResults = searchResults.map((track) => {
+            const trackName = (track as { name: string }).name;
+            const searchTerm = song.endsWith("...") ? song.slice(0, -3) : song;
+            const distance = song.endsWith("...")
+              ? calculateLevenshteinDistance(trackName.slice(0, searchTerm.length), searchTerm)
+              : calculateLevenshteinDistance(trackName, searchTerm);
+            return { track, distance };
+          });
+
+          const trackFromTopArtist = relevantResults.find(
+            (result) => (result.track as { artists?: Array<{ name: string }> }).artists?.some(
+              artist => userTopArtists.has(artist.name.toLowerCase())
+            )
+          )?.track;
+
+          const bestMatch = relevantResults.length > 0 
+            ? relevantResults.reduce((min, curr) => curr.distance < min.distance ? curr : min).track
+            : searchResults[0];
+
+          return trackFromTopArtist ?? bestMatch;
+        }));
+      })),
+      Promise.all(body.data.map(async (userData) => {
+        return Promise.all(userData["Top Artists"].map(async (artist) => {
+          const artistTracks = await searchTrack(artist, true);
+          return artistTracks.slice(0, 3);
+        }));
+      }))
+    ]);
+
     const playlistId = playlist.id;
     const addedTrackUris = new Set<string>();
-
-    // Process songs and artists in parallel
-    const songPromises = body.data.map(async (userData) => {
-      const userTopArtists = new Set(userData["Top Artists"].map(artist => artist.toLowerCase()));
-      
-      return Promise.all(userData["Top Songs"].map(async (song) => {
-        const searchResults = await searchTrack(song);
-        if (searchResults.length === 0) return null;
-
-        // Filter results using fuzzy matching and calculate distances
-        const relevantResults = searchResults.map((track) => {
-          const trackName = (track as { name: string }).name;
-          const searchTerm = song.endsWith("...") ? song.slice(0, -3) : song;
-          const distance = song.endsWith("...")
-            ? calculateLevenshteinDistance(trackName.slice(0, searchTerm.length), searchTerm)
-            : calculateLevenshteinDistance(trackName, searchTerm);
-          return { track, distance };
-        });
-
-        // Try to find a track from user's top artists
-        const trackFromTopArtist = relevantResults.find(
-          (result) => (result.track as { artists?: Array<{ name: string }> }).artists?.some(
-            artist => userTopArtists.has(artist.name.toLowerCase())
-          )
-        )?.track;
-
-        // If no track from top artists, use the one with lowest distance
-        const bestMatch = relevantResults.length > 0 
-          ? relevantResults.reduce((min, curr) => curr.distance < min.distance ? curr : min).track
-          : searchResults[0];
-
-        return trackFromTopArtist ?? bestMatch;
-      }));
-    });
-
-    const artistPromises = body.data.map(async (userData) => {
-      return Promise.all(userData["Top Artists"].map(async (artist) => {
-        const artistTracks = await searchTrack(artist, true);
-        return artistTracks.slice(0, 3); // Get top 3 tracks per artist
-      }));
-    });
-
-    // Wait for all searches to complete
-    const songResults = await Promise.all(songPromises);
-    const artistResults = await Promise.all(artistPromises);
 
     // Flatten results and filter out nulls
     const allSongTracks = songResults.flat().filter((track): track is { uri: string } => track !== null);
     const allArtistTracks = artistResults.flat(2) as { uri: string }[];
     
-    // Add songs first
-    for (const track of allSongTracks) {
-      if (!addedTrackUris.has(track.uri)) {
-        await addTracksToPlaylist(playlistId, [track.uri]);
+    // Add all tracks in parallel
+    const trackUris = [...allSongTracks, ...allArtistTracks]
+      .filter(track => !addedTrackUris.has(track.uri))
+      .map(track => {
         addedTrackUris.add(track.uri);
-      }
-    }
+        return track.uri;
+      });
 
-    // Then add artist tracks
-    for (const track of allArtistTracks) {
-      if (!addedTrackUris.has(track.uri)) {
-        await addTracksToPlaylist(playlistId, [track.uri]);
-        addedTrackUris.add(track.uri);
-      }
+    if (trackUris.length > 0) {
+      await addTracksToPlaylist(playlistId, trackUris);
     }
 
     return new NextResponse(JSON.stringify({ playlistId }), { status: 200 });
   } catch (error) {
     console.error("Error creating playlist:", error);
+    
+    if (error instanceof Error && error.message.includes('ETIMEDOUT')) {
+      return new NextResponse(
+        JSON.stringify({ error: "Spotify is rate limiting requests. Please try again in a few minutes." }),
+        { status: 429 }
+      );
+    }
+
     return new NextResponse(
-      JSON.stringify({ error: "Failed to create playlist" }),
-      { status: 500 },
+      JSON.stringify({ error: "Failed to create playlist. Spotify may be rate limiting requests. Please try again later." }),
+      { status: 500 }
     );
   }
 }

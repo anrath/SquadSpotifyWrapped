@@ -332,6 +332,7 @@ function WrappedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
   const [loadingMessage, setLoadingMessage] = useState(
     "Creating your playlist...",
   );
+  const [error, setError] = useState<{ message: string; code?: string } | null>(null);
 
   const loadingMessages = [
     "Creating your playlist...",
@@ -438,6 +439,7 @@ function WrappedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
 
   const handleCreatePlaylist = async () => {
     setPlaylistId("");
+    setError(null);
     setIsCreatingPlaylist(true);
 
     const spotifyData = files
@@ -458,11 +460,21 @@ function WrappedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
           },
           body: JSON.stringify({ data: spotifyData }),
         });
+
+        if (!response.ok) {
+          const errorData = await response.json() as { error: string };
+          throw new Error(errorData.error || 'Failed to create playlist');
+        }
+
         const result = (await response.json()) as { playlistId: string };
         setPlaylistId(result.playlistId);
       }
     } catch (error) {
       console.error("Failed to create playlist:", error);
+      setError({
+        message: error instanceof Error ? error.message : 'An unexpected error occurred',
+        code: undefined
+      });
     } finally {
       setIsCreatingPlaylist(false);
       setLoadingMessage(loadingMessages[0] ?? "");
@@ -481,8 +493,8 @@ function WrappedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
   if (files.length === 0) {
     return (
       <UploadBox
-        title="Add your friends' Spotify Wrapped images (with their top artists and songs) and a playlist will be generated in ~10 seconds. Quick and easy."
-        subtitle="Upload up to 10 images at once. Allows pasting images from clipboard"
+        title="Add your friends' Spotify Wrapped images (with their top artists and songs) and a playlist will be generated. Quick and easy."
+        subtitle="Upload up to 5 images at once. Allows pasting images from clipboard"
         description="Upload Images"
         accept="image/*"
         multiple
@@ -498,23 +510,35 @@ function WrappedToolCore(props: { fileUploaderProps: FileUploaderResult }) {
           <Loader2 className="h-8 w-8 animate-spin" />
           <p className="transition-opacity duration-300">{loadingMessage}</p>
         </div>
-      ) : (
-        playlistId && (
-          <div className="mx-auto max-w-[500px] space-y-4">
-            <iframe
-              style={{ borderRadius: "12px" }}
-              src={`https://open.spotify.com/embed/playlist/${playlistId}?utm_source=generator&theme=0`}
-              width="100%"
-              height="500"
-              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-              loading="lazy"
-            ></iframe>
-            <p className="text-center text-sm text-red-500">
-              This playlist may be deleted in the future. Please make a copy for
-              yourself if you&apos;d like to keep it.
-            </p>
-          </div>
-        )
+      ) : error ? (
+        <div className="mx-auto max-w-[500px] space-y-4 rounded-lg border border-red-500/50 bg-red-500/10 p-6 text-center">
+          <h3 className="text-lg font-semibold text-red-400">Failed to Create Playlist</h3>
+          <p className="text-red-300">{error.message}</p>
+          {error.code && (
+            <p className="text-sm text-red-300/70">Error Code: {error.code}</p>
+          )}
+          <button
+            onClick={() => setError(null)}
+            className="mt-4 rounded-lg bg-red-500/20 px-4 py-2 text-sm font-medium text-red-300 transition-colors hover:bg-red-500/30"
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : playlistId && (
+        <div className="mx-auto max-w-[500px] space-y-4">
+          <iframe
+            style={{ borderRadius: "12px" }}
+            src={`https://open.spotify.com/embed/playlist/${playlistId}?utm_source=generator&theme=0`}
+            width="100%"
+            height="500"
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+            loading="lazy"
+          ></iframe>
+          <p className="text-center text-sm text-red-500">
+            This playlist may be deleted in the future. Please make a copy for
+            yourself if you&apos;d like to keep it.
+          </p>
+        </div>
       )}
 
       <div className="flex flex-col items-center gap-4">
@@ -615,7 +639,7 @@ export function WrappedTool( {debug = false} ) {
         setCurrentFiles={fileUploaderProps.handleFileUpload}
         acceptedFileTypes={["image/*", ".jpg", ".jpeg", ".png", ".webp", ".svg"]}
         dropText="Drop image files"
-        maxFiles={10}
+        maxFiles={5}
       >
         <WrappedToolCore fileUploaderProps={fileUploaderProps} />
       </FileDropzone>
