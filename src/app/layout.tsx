@@ -30,7 +30,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <PlausibleProvider domain="SquadSpotifyWrapped.t3.gg" />
+        <PlausibleProvider domain="spotify.kasralekan.com" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} dark antialiased`}
